@@ -1,0 +1,172 @@
+/* Site-wide styles. Colours come from theme.css. */
+
+/* Point Bootstrap at the brand colours. */
+:root {
+  --bs-body-bg: var(--tt-cream);
+  --bs-body-color: var(--tt-ink);
+  --bs-body-font-family: var(--tt-font-body);
+  --bs-body-font-size: 1.0625rem;
+  --bs-link-color: var(--tt-deep-rose);
+  --bs-link-color-rgb: 158, 74, 85;
+  --bs-link-hover-color: var(--tt-deep-rose-dark);
+  --bs-link-hover-color-rgb: 127, 56, 67;
+  --bs-border-color: var(--tt-line);
+  --bs-secondary-color: var(--tt-muted);
+}
+
+/*
+  Always keep room for the vertical scrollbar. Without this, a short page (no scrollbar)
+  is 15px wider than a long one on Windows, so the centred header and content jump
+  sideways when moving between pages. Supported in current Chrome, Edge, Firefox and Safari;
+  phones and Macs with overlay scrollbars are unaffected.
+*/
+html {
+  scrollbar-gutter: stable;
+}
+
+body {
+  background: var(--tt-cream);
+  color: var(--tt-ink);
+  font-family: var(--tt-font-body);
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--tt-font-heading);
+  font-weight: 600;
+  color: var(--tt-deep-rose);
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 1.85rem;
+}
+
+h2 {
+  font-size: 1.45rem;
+}
+
+h3 {
+  font-size: 1.15rem;
+}
+
+/* Clear keyboard focus on everything. */
+:focus-visible {
+  outline: 3px solid var(--tt-deep-rose);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ---- Layout ---- */
+
+/*
+  Pages use Bootstrap's .container-lg: full width on phones and tablets,
+  then a centred max width (960px at lg, 1140px at xl, 1320px at xxl).
+  A 2rem gutter gives 1rem padding at each side, as on the phone design.
+*/
+.container-lg {
+  --bs-gutter-x: 2rem;
+}
+
+/* Keep long paragraphs to a comfortable reading width on wide screens. */
+.measure {
+  max-width: 40rem;
+}
+
+/* Card / panel in her blush colour with a thin line frame. */
+.panel {
+  background: var(--tt-blush);
+  border: 1px solid var(--tt-line);
+  border-radius: var(--tt-radius);
+  padding: 1.1rem 1rem;
+}
+
+.muted {
+  color: var(--tt-muted);
+}
+
+.small-print {
+  font-size: 0.9375rem;
+  color: var(--tt-muted);
+}
+
+/* ---- Buttons ---- */
+
+.btn {
+  min-height: var(--tt-tap);
+  border-radius: 999px;
+  font-weight: 700;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-lg {
+  min-height: 54px;
+  font-size: 1.1rem;
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--tt-deep-rose);
+  --bs-btn-border-color: var(--tt-deep-rose);
+  --bs-btn-color: #fff;
+  --bs-btn-hover-bg: var(--tt-deep-rose-dark);
+  --bs-btn-hover-border-color: var(--tt-deep-rose-dark);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-active-bg: var(--tt-deep-rose-dark);
+  --bs-btn-active-border-color: var(--tt-deep-rose-dark);
+  --bs-btn-active-color: #fff;
+  --bs-btn-disabled-bg: #c9a3a8;
+  --bs-btn-disabled-border-color: #c9a3a8;
+  --bs-btn-disabled-color: #fff;
+  --bs-btn-disabled-opacity: 1;
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--tt-deep-rose);
+  --bs-btn-border-color: var(--tt-deep-rose);
+  --bs-btn-bg: var(--tt-white);
+  --bs-btn-hover-bg: var(--tt-pink);
+  --bs-btn-hover-color: var(--tt-deep-rose-dark);
+  --bs-btn-hover-border-color: var(--tt-deep-rose);
+  --bs-btn-active-bg: var(--tt-pink);
+  --bs-btn-active-color: var(--tt-deep-rose-dark);
+  --bs-btn-active-border-color: var(--tt-deep-rose);
+}
+
+/* Bootstrap's own focus ring is replaced by the outline above. */
+.btn:focus-visible {
+  box-shadow: none;
+  outline: 3px solid var(--tt-deep-rose);
+  outline-offset: 3px;
+}
+
+/* Fieldsets used to group options: no default border, legend styled like a heading. */
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+legend {
+  font-family: var(--tt-font-heading);
+  font-weight: 600;
+  color: var(--tt-deep-rose);
+  font-size: 1.3rem;
+  margin-bottom: 0.25rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}

@@ -1,0 +1,26 @@
+# Dependencies and build output
+node_modules/
+dist/
+dist-ssr/
+
+# Secrets: never commit real credentials
+.env
+.env.*
+!.env.example
+config.env
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+
+# Instagram screenshots used only as a theme reference.
+# Some show other artists' work, so they must not be published.
+design-reference/
+
+# Editor and OS files
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+*.log

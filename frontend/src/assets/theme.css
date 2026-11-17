@@ -1,0 +1,39 @@
+/*
+  Brand colours and fonts, all in one place.
+  Every other style uses these variables, so a seasonal look is a small override.
+
+  Contrast notes (WCAG):
+  - --tt-rose is only about 3:1 on blush, so use it for LARGE headings and decoration only.
+  - --tt-deep-rose reaches 4.5:1+ on cream, blush and pink: use it for small text and buttons.
+*/
+:root {
+  --tt-cream: #fbf0e7; /* page background */
+  --tt-blush: #f8e3da; /* panels and cards */
+  --tt-pink: #fbdbdf; /* slot pills, selected options */
+  --tt-white: #fffaf6; /* raised surfaces */
+  --tt-rose: #c4737c; /* large headings, hearts, sparkles */
+  --tt-deep-rose: #9e4a55; /* small text, links, buttons */
+  --tt-deep-rose-dark: #7f3843; /* button hover */
+  --tt-ink: #1a1a1a; /* body text */
+  --tt-muted: #5c4a4d; /* secondary text */
+  --tt-line: #e2b8b3; /* thin frames and dividers */
+
+  --tt-font-heading: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --tt-font-body: 'Nunito Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --tt-radius: 1rem;
+  --tt-radius-small: 0.6rem;
+  --tt-tap: 48px; /* minimum height of anything you tap */
+}
+
+/*
+  Example seasonal override. To use it, add data-theme="christmas" to <html> in index.html.
+  Only the variables change; the layout stays the same.
+
+[data-theme='christmas'] {
+  --tt-rose: #b8323f;
+  --tt-deep-rose: #8f1f2c;
+  --tt-deep-rose-dark: #6e1720;
+  --tt-pink: #f6d6d3;
+}
+*/
