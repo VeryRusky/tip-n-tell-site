@@ -3,18 +3,18 @@ import { ref, computed } from 'vue'
 import { formatMonth, formatLongDate, formatTime, toDateString } from '@/utils/format'
 import { phase, easeOut, setVars } from '@/utils/motion'
 import IconCheck from '@/components/icons/IconCheck.vue'
-import StoryScene from './StoryScene.vue'
 import StoryFit from './StoryFit.vue'
 
-// Scene 02, "Pick a time". A picture of the real calendar for the first open month
-// (from the API, so it is always true), assembling itself as the visitor scrolls:
-//   0.03 – 0.2   grid lines draw
-//   0.12 – 0.26  weekday headers drop in
-//   0.2  – 0.4   day numbers fade in, row by row
-//   0.36 – 0.54  the open days pop in as a wave
-//   0.54 – 0.7   a ring travels to one open day and selects it
-//   0.7  – 0.84  that day's times slide up
-//   0.86 – 0.94  one time is ticked
+// Story scene 2, "Pick a time". A picture of the real calendar for the first open month
+// (from the API, so it is always true), assembling itself while the scene plays
+// (the story player calls `update(t)` with t going from 0 to 1 over about four seconds):
+//   0    – 0.12  grid lines draw
+//   0.06 – 0.16  weekday headers drop in
+//   0.12 – 0.28  day numbers fade in, row by row
+//   0.26 – 0.42  the open days pop in as a wave
+//   0.42 – 0.6   a ring travels to one open day and selects it
+//   0.6  – 0.72  that day's times slide up
+//   0.73 – 0.8   one time is ticked, then the finished picture holds
 // It is only a picture (aria-hidden); the scene's text describes it, and the real,
 // usable calendar is on the booking page.
 const props = defineProps({
@@ -23,7 +23,6 @@ const props = defineProps({
   slotsByDate: { type: Object, required: true },
   sampleSlot: { type: Object, default: null },
 })
-const emit = defineEmits(['progress'])
 
 const weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 const today = toDateString(new Date())
@@ -73,131 +72,122 @@ const times = computed(() =>
 
 const visual = ref(null)
 
-function onProgress(p) {
-  emit('progress', p)
-  const travel = easeOut(phase(p, 0.56, 0.68))
+// Draws the scene at time t (0 to 1) by setting CSS variables on the picture.
+function update(t) {
+  const travel = easeOut(phase(t, 0.44, 0.55))
   const from = ringStart.value ?? { row: 0, col: 0 }
   const to = target.value ?? from
   setVars(visual.value, {
-    '--lines': phase(p, 0.03, 0.2),
-    '--heads': phase(p, 0.12, 0.26),
-    '--nums': phase(p, 0.2, 0.4),
-    '--pills': phase(p, 0.36, 0.54),
-    '--ring': phase(p, 0.53, 0.57),
+    '--lines': phase(t, 0, 0.12),
+    '--heads': phase(t, 0.06, 0.16),
+    '--nums': phase(t, 0.12, 0.28),
+    '--pills': phase(t, 0.26, 0.42),
+    '--ring': phase(t, 0.41, 0.45),
     '--rx': from.col + (to.col - from.col) * travel,
     '--ry': from.row + (to.row - from.row) * travel,
-    '--select': phase(p, 0.66, 0.71),
-    '--times': phase(p, 0.7, 0.84),
-    '--tick': phase(p, 0.86, 0.94),
+    '--select': phase(t, 0.54, 0.59),
+    '--times': phase(t, 0.6, 0.72),
+    '--tick': phase(t, 0.73, 0.8),
   })
 }
+
+defineExpose({ update })
 </script>
 
 <template>
-  <StoryScene
-    number="02"
-    title="Pick a time"
-    title-id="story-time-title"
-    :animated="animated"
-    @progress="onProgress"
-  >
-    <template #text>
+  <div class="card-scene">
+    <div class="card-text">
+      <h3 id="story-time-title">Pick a time</h3>
       <p>Open days and times, always up to date.</p>
       <p v-if="month && sampleSlot" class="visually-hidden">
         The picture shows my calendar for {{ formatMonth(month) }}, with the open days marked.
         {{ formatLongDate(sampleSlot.date) }} is chosen, and its {{ formatTime(sampleSlot.time) }}
         time is ticked.
       </p>
-    </template>
+    </div>
 
-    <template #visual>
-      <div class="calendar-visual" :class="{ 'is-animated': animated }">
-        <!-- A soft glow behind the card, like the one behind the hand in scene 01. -->
-        <div class="glow" aria-hidden="true"></div>
-        <StoryFit :active="animated">
-          <div
-            ref="visual"
-            class="mini"
-            :class="{ 'is-animated': animated }"
-            :style="{
-              '--rows': weeks.length,
-              '--target-row': target?.row ?? 0,
-              '--target-col': target?.col ?? 0,
-            }"
-            aria-hidden="true"
-          >
-            <p class="mini-month">{{ month ? formatMonth(month) : '' }}</p>
+    <div class="card-picture calendar-visual" :class="{ 'is-animated': animated }">
+      <!-- A soft glow behind the card, like the one behind the hand in scene 01. -->
+      <div class="glow" aria-hidden="true"></div>
+      <StoryFit active>
+        <div
+          ref="visual"
+          class="mini"
+          :class="{ 'is-animated': animated }"
+          :style="{
+            '--rows': weeks.length,
+            '--target-row': target?.row ?? 0,
+            '--target-col': target?.col ?? 0,
+          }"
+          aria-hidden="true"
+        >
+          <p class="mini-month">{{ month ? formatMonth(month) : '' }}</p>
 
-            <div class="mini-heads">
-              <span v-for="(name, i) in weekdays" :key="i" :style="{ '--i': i }">{{ name }}</span>
-            </div>
-
-            <div class="mini-grid">
-              <!-- Thin grid lines, drawn with transforms (scaleX / scaleY from 0 to 1). -->
-              <span
-                v-for="h in weeks.length + 1"
-                :key="`h${h}`"
-                class="hline"
-                :style="{ '--i': h - 1, top: `${((h - 1) / weeks.length) * 100}%` }"
-              ></span>
-              <span
-                v-for="v in 8"
-                :key="`v${v}`"
-                class="vline"
-                :style="{ '--i': v - 1, left: `${((v - 1) / 7) * 100}%` }"
-              ></span>
-
-              <template v-for="(week, row) in weeks" :key="row">
-                <div
-                  v-for="(cell, col) in week"
-                  :key="`${row}-${col}`"
-                  class="cell"
-                  :class="cell ? `is-${cell.state}` : 'is-empty'"
-                  :style="{ '--row': row, '--wave': row + col }"
-                >
-                  <template v-if="cell">
-                    <span v-if="cell.state === 'open'" class="pill"></span>
-                    <span class="num">{{ cell.day }}</span>
-                    <span v-if="target && target.row === row && target.col === col" class="chosen">
-                      <span>{{ cell.day }}</span>
-                    </span>
-                  </template>
-                </div>
-              </template>
-
-              <span v-if="target" class="ring"></span>
-            </div>
-
-            <div v-if="times.length" class="mini-times">
-              <span
-                v-for="(slot, i) in times"
-                :key="slot.id"
-                class="time"
-                :class="{
-                  'is-booked': slot.status === 'booked',
-                  'is-ticked': slot.id === sampleSlot?.id,
-                }"
-                :style="{ '--i': i }"
-              >
-                <span class="time-fill"></span>
-                <span class="time-label">{{ formatTime(slot.time) }}</span>
-                <IconCheck v-if="slot.id === sampleSlot?.id" class="time-tick" />
-              </span>
-            </div>
+          <div class="mini-heads">
+            <span v-for="(name, i) in weekdays" :key="i" :style="{ '--i': i }">{{ name }}</span>
           </div>
-        </StoryFit>
-      </div>
-    </template>
-  </StoryScene>
+
+          <div class="mini-grid">
+            <!-- Thin grid lines, drawn with transforms (scaleX / scaleY from 0 to 1). -->
+            <span
+              v-for="h in weeks.length + 1"
+              :key="`h${h}`"
+              class="hline"
+              :style="{ '--i': h - 1, top: `${((h - 1) / weeks.length) * 100}%` }"
+            ></span>
+            <span
+              v-for="v in 8"
+              :key="`v${v}`"
+              class="vline"
+              :style="{ '--i': v - 1, left: `${((v - 1) / 7) * 100}%` }"
+            ></span>
+
+            <template v-for="(week, row) in weeks" :key="row">
+              <div
+                v-for="(cell, col) in week"
+                :key="`${row}-${col}`"
+                class="cell"
+                :class="cell ? `is-${cell.state}` : 'is-empty'"
+                :style="{ '--row': row, '--wave': row + col }"
+              >
+                <template v-if="cell">
+                  <span v-if="cell.state === 'open'" class="pill"></span>
+                  <span class="num">{{ cell.day }}</span>
+                  <span v-if="target && target.row === row && target.col === col" class="chosen">
+                    <span>{{ cell.day }}</span>
+                  </span>
+                </template>
+              </div>
+            </template>
+
+            <span v-if="target" class="ring"></span>
+          </div>
+
+          <div v-if="times.length" class="mini-times">
+            <span
+              v-for="(slot, i) in times"
+              :key="slot.id"
+              class="time"
+              :class="{
+                'is-booked': slot.status === 'booked',
+                'is-ticked': slot.id === sampleSlot?.id,
+              }"
+              :style="{ '--i': i }"
+            >
+              <span class="time-fill"></span>
+              <span class="time-label">{{ formatTime(slot.time) }}</span>
+              <IconCheck v-if="slot.id === sampleSlot?.id" class="time-tick" />
+            </span>
+          </div>
+        </div>
+      </StoryFit>
+    </div>
+  </div>
 </template>
 
 <style scoped>
 .calendar-visual {
   position: relative;
-}
-
-.calendar-visual.is-animated {
-  height: 100%;
 }
 
 /* Own compositor layers: the card's moving pieces never repaint the big glow behind it. */
@@ -463,51 +453,5 @@ function onProgress(p) {
 .is-animated .time-tick :deep(path) {
   stroke-dasharray: 1 1;
   stroke-dashoffset: calc(1 - var(--tick));
-}
-
-/* Laptops: about a quarter larger, so the picture holds its half of the screen. */
-@media (min-width: 992px) {
-  .mini {
-    max-width: 37rem;
-    padding: 1.7rem 1.7rem 1.8rem;
-    border-radius: 1.8rem;
-  }
-
-  .mini-month {
-    font-size: 1.55rem;
-    margin-bottom: 0.8rem;
-  }
-
-  .mini-heads span {
-    font-size: 0.95rem;
-    padding: 0.25rem 0;
-  }
-
-  .mini-grid {
-    grid-auto-rows: 3.7rem;
-  }
-
-  .num,
-  .chosen {
-    font-size: 1.25rem;
-  }
-
-  .pill {
-    inset: 7px 6px;
-  }
-
-  .chosen {
-    inset: 6px 5px;
-  }
-
-  .mini-times {
-    gap: 0.75rem;
-    margin-top: 1.2rem;
-  }
-
-  .time {
-    font-size: 1.15rem;
-    padding: 0.55rem 1.2rem;
-  }
 }
 </style>

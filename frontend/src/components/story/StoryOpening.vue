@@ -3,14 +3,17 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { site } from '@/config/site'
 import { useCatalogStore } from '@/stores/catalog'
 import { formatPrice } from '@/utils/format'
-import { prefersReducedMotion } from '@/utils/motion'
 import IconPin from '@/components/icons/IconPin.vue'
 
-// The opening of the home page, like the top of one of her posters.
-// On the first visit in a browser session it plays once (about 1.6 seconds, not tied to
-// scrolling): the letters rise in, the heart over the "n" draws and fills, a thin frame
-// with notched corners draws around it, sparkles twinkle, then the tagline and button
-// fade up. After that (or with Reduce Motion) it simply shows the finished picture.
+// The top of the home page, like the top of one of her posters: the wordmark, tagline,
+// area, "Book a slot" and a short note, inside a thin frame with notched corners.
+// When `playing` is true (the first visit in a browser session, see utils/opening.js) it
+// plays once, in about 1.6 seconds: the letters rise in, the heart over the "n" draws and
+// fills, the frame draws itself, sparkles twinkle, then the text and button fade up.
+// Otherwise it simply shows the finished picture.
+defineProps({
+  playing: { type: Boolean, default: false },
+})
 
 const catalog = useCatalogStore()
 onMounted(() => catalog.load())
@@ -19,28 +22,6 @@ const fromPrice = computed(() => {
   const lowest = catalog.lowestPrice()
   return lowest === null ? '' : `from ${formatPrice(lowest)}`
 })
-
-// ---- Play once per browser session ----
-// sessionStorage is cleared when the tab is closed. It only holds "played", nothing personal.
-const PLAYED_KEY = 'tipntell-opening-played'
-
-function readPlayed() {
-  try {
-    return sessionStorage.getItem(PLAYED_KEY) === '1'
-  } catch {
-    return true // storage blocked: don't risk replaying on every visit
-  }
-}
-
-// Decided before the first render, so the finished picture never flashes first.
-const playing = ref(!prefersReducedMotion() && !readPlayed())
-if (playing.value) {
-  try {
-    sessionStorage.setItem(PLAYED_KEY, '1')
-  } catch {
-    // Fine: it just plays again next time.
-  }
-}
 
 // ---- The wordmark, split into letters so each one can rise in on its own ----
 const words = site.brandName.split(' ') // ['tip', 'n', 'tell']
@@ -88,110 +69,82 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => resizeObserver?.disconnect())
-
-// ---- "Skip the story": jump to the prices and move keyboard focus there too ----
-function skipStory(event) {
-  const target = document.getElementById('prices')
-  if (!target) return
-  event.preventDefault()
-  target.scrollIntoView({ block: 'start' })
-  target.focus({ preventScroll: true })
-}
 </script>
 
 <template>
   <section class="opening" :class="{ 'is-playing': playing }" aria-labelledby="opening-title">
-    <div class="container-lg opening-inner">
-      <div ref="frameBox" class="opening-frame">
-        <svg
-          class="frame-lines"
-          :viewBox="`0 0 ${frameSize.width} ${frameSize.height}`"
-          aria-hidden="true"
-          focusable="false"
-        >
-          <path class="frame-outer" :d="outerFrame" pathLength="1" />
-          <path class="frame-inner" :d="innerFrame" pathLength="1" />
-        </svg>
+    <div ref="frameBox" class="opening-frame">
+      <svg
+        class="frame-lines"
+        :viewBox="`0 0 ${frameSize.width} ${frameSize.height}`"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path class="frame-outer" :d="outerFrame" pathLength="1" />
+        <path class="frame-inner" :d="innerFrame" pathLength="1" />
+      </svg>
 
-        <svg
-          v-for="n in 3"
-          :key="n"
-          class="corner-sparkle"
-          :class="`corner-sparkle-${n}`"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-          focusable="false"
-        >
-          <path
-            d="M12 2c.6 5.2 2.8 7.4 8 8-5.2.6-7.4 2.8-8 8-.6-5.2-2.8-7.4-8-8 5.2-.6 7.4-2.8 8-8z"
-          />
-        </svg>
+      <svg
+        v-for="n in 3"
+        :key="n"
+        class="corner-sparkle"
+        :class="`corner-sparkle-${n}`"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path
+          d="M12 2c.6 5.2 2.8 7.4 8 8-5.2.6-7.4 2.8-8 8-.6-5.2-2.8-7.4-8-8 5.2-.6 7.4-2.8 8-8z"
+        />
+      </svg>
 
-        <h1 id="opening-title" class="opening-title">
-          <span class="visually-hidden">{{ site.brandName }}</span>
-          <span class="letters" aria-hidden="true">
+      <h1 id="opening-title" class="opening-title">
+        <span class="visually-hidden">{{ site.brandName }}</span>
+        <span class="letters" aria-hidden="true">
+          <span
+            v-for="(letters, w) in wordLetters"
+            :key="w"
+            class="mark-word"
+            :class="{ 'mark-middle': w === 1 }"
+          >
             <span
-              v-for="(letters, w) in wordLetters"
-              :key="w"
-              class="mark-word"
-              :class="{ 'mark-middle': w === 1 }"
+              v-for="item in letters"
+              :key="item.index"
+              class="mark-letter"
+              :style="{ '--i': item.index }"
+              >{{ item.letter }}</span
             >
-              <span
-                v-for="item in letters"
-                :key="item.index"
-                class="mark-letter"
-                :style="{ '--i': item.index }"
-                >{{ item.letter }}</span
-              >
-              <svg v-if="w === 1" class="mark-heart" viewBox="0 0 24 24" focusable="false">
-                <path
-                  pathLength="1"
-                  d="M12 20.5s-7.5-4.6-7.5-10A4.2 4.2 0 0 1 12 7.8a4.2 4.2 0 0 1 7.5 2.7c0 5.4-7.5 10-7.5 10z"
-                />
-              </svg>
-            </span>
+            <svg v-if="w === 1" class="mark-heart" viewBox="0 0 24 24" focusable="false">
+              <path
+                pathLength="1"
+                d="M12 20.5s-7.5-4.6-7.5-10A4.2 4.2 0 0 1 12 7.8a4.2 4.2 0 0 1 7.5 2.7c0 5.4-7.5 10-7.5 10z"
+              />
+            </svg>
           </span>
-        </h1>
+        </span>
+      </h1>
 
-        <p class="opening-tagline rise" style="--d: 0">
-          {{ site.tagline }}<template v-if="fromPrice">, {{ fromPrice }}</template>
-        </p>
-        <p class="opening-area rise" style="--d: 1"><IconPin /> {{ site.area }}</p>
-        <RouterLink
-          :to="{ name: 'book-slot' }"
-          class="btn btn-primary btn-lg opening-button rise"
-          style="--d: 2"
-        >
-          Book a slot
-        </RouterLink>
-        <p class="small-print opening-note rise" style="--d: 3">
-          Pick a time here, then send me a DM on Instagram. No sign-up, no payment online.
-        </p>
-      </div>
-
-      <div class="opening-foot">
-        <p class="scroll-cue" aria-hidden="true">
-          Scroll to see how booking works
-          <svg viewBox="0 0 24 24" focusable="false"><path d="M6 9l6 6 6-6" /></svg>
-        </p>
-        <a href="#prices" class="skip-story" @click="skipStory">Skip the story</a>
-      </div>
+      <p class="opening-tagline rise" style="--d: 0">
+        {{ site.tagline }}<template v-if="fromPrice">, {{ fromPrice }}</template>
+      </p>
+      <p class="opening-area rise" style="--d: 1"><IconPin /> {{ site.area }}</p>
+      <RouterLink
+        :to="{ name: 'book-slot' }"
+        class="btn btn-primary btn-lg opening-button rise"
+        style="--d: 2"
+      >
+        Book a slot
+      </RouterLink>
+      <p class="small-print opening-note rise" style="--d: 3">
+        Pick a time here, then send me a DM on Instagram. No sign-up, no payment online.
+      </p>
     </div>
   </section>
 </template>
 
 <style scoped>
 .opening {
-  /* One screen under the header (and the demo notice, while there is one). */
-  min-height: calc(100svh - var(--tt-header-h) - var(--tt-banner-h, 0px));
   display: flex;
-}
-
-.opening-inner {
-  display: flex;
-  flex-direction: column;
-  padding-top: 1rem;
-  padding-bottom: 0.5rem;
 }
 
 .opening-frame {
@@ -202,7 +155,7 @@ function skipStory(event) {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 2.5rem 1.5rem 2rem;
+  padding: 2.6rem 1.5rem 2.2rem;
   background: radial-gradient(ellipse at 50% 35%, var(--tt-blush), transparent 70%);
   border-radius: 1.75rem;
 }
@@ -228,11 +181,11 @@ function skipStory(event) {
 
 /* ---- Wordmark ---- */
 .opening-title {
-  margin: 0 0 1rem;
+  margin: 0.4rem 0 0.75rem;
   font-family: var(--tt-font-heading);
   font-weight: 600;
   color: var(--tt-ink);
-  font-size: clamp(3.75rem, 17vw, 8rem);
+  font-size: clamp(3.4rem, 16vw, 6.5rem);
   line-height: 1;
   letter-spacing: -0.02em;
 }
@@ -292,7 +245,7 @@ function skipStory(event) {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--tt-deep-rose);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.1rem;
 }
 
 .opening-button {
@@ -345,44 +298,6 @@ function skipStory(event) {
     transform: scale(0.72) rotate(12deg);
     opacity: 0.6;
   }
-}
-
-/* ---- Foot: scroll cue and skip link ---- */
-.opening-foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.25rem 1rem;
-  padding: 0.6rem 0.25rem 0;
-}
-
-.scroll-cue {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin: 0;
-  font-size: 0.95rem;
-  color: var(--tt-muted);
-}
-
-.scroll-cue svg {
-  width: 1.1rem;
-  height: 1.1rem;
-  fill: none;
-  stroke: var(--tt-deep-rose);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.skip-story {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  font-weight: 700;
-  font-size: 0.95rem;
-  text-underline-offset: 3px;
 }
 
 /*
@@ -464,10 +379,6 @@ function skipStory(event) {
   animation-delay: calc(1s + var(--d) * 60ms);
 }
 
-.is-playing .opening-foot {
-  animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 1.35s both;
-}
-
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -478,11 +389,6 @@ function skipStory(event) {
 @media (min-width: 992px) {
   .opening-frame {
     padding: 3rem 2rem;
-  }
-
-  .opening-foot {
-    justify-content: center;
-    gap: 2rem;
   }
 }
 </style>

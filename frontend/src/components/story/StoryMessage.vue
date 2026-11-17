@@ -5,21 +5,20 @@ import { useCatalogStore } from '@/stores/catalog'
 import { buildRequestMessage } from '@/utils/message'
 import { phase, easeOut, setVars } from '@/utils/motion'
 import IconHeart from '@/components/icons/IconHeart.vue'
-import StoryScene from './StoryScene.vue'
 import StoryFit from './StoryFit.vue'
 
-// Scene 03, "Send it". A small Instagram-style chat:
-//   0.05 – 0.45  the request types itself into a bubble (the real message format,
-//                with the sample slot from scene 02 and sample choices)
-//   0.47 – 0.52  it shows as sent
-//   0.55 – 0.62  "typing…" dots
-//   0.62 – 0.7   her reply pops in: "Booked ✓ See you then!"
-//   0.74 – 0.92  a ribbon bow ties itself above the "Book a slot" button
+// Story scene 3, "Send it". A small Instagram-style chat. The story player calls
+// `update(t)` with t going from 0 to 1 over about four and a half seconds:
+//   0.04 – 0.36  the request types itself into a bubble (the real message format,
+//                with the sample slot from scene 2 and sample choices)
+//   0.37 – 0.41  it shows as sent
+//   0.43 – 0.5   "typing…" dots
+//   0.5  – 0.57  her reply pops in: "Booked ✓ See you then!"
+//   0.6  – 0.78  a ribbon bow ties itself under the chat, then the finished picture holds
 const props = defineProps({
   animated: { type: Boolean, default: false },
   sampleSlot: { type: Object, default: null },
 })
-const emit = defineEmits(['progress'])
 
 const catalog = useCatalogStore()
 onMounted(() => catalog.load())
@@ -44,50 +43,48 @@ const message = computed(() => {
 const visual = ref(null)
 const replyLine = ref(null)
 const typed = ref(null)
-let lastProgress = 1
+let lastTime = 1
 
 // The typed part of the message is written straight into the page (textContent),
 // so typing a letter does not make Vue re-render the scene.
-function showTyped(p) {
+function showTyped(t) {
   if (!typed.value) return
-  const letters = Math.round(phase(p, 0.05, 0.45) * message.value.length)
+  const letters = Math.round(phase(t, 0.04, 0.36) * message.value.length)
   const text = props.animated ? message.value.slice(0, letters) : message.value
   if (typed.value.textContent !== text) typed.value.textContent = text
 }
 
-function onProgress(p) {
-  emit('progress', p)
-  lastProgress = p
-  showTyped(p)
-  const typing = phase(p, 0.05, 0.45)
+// Draws the scene at time t (0 to 1).
+function update(t) {
+  lastTime = t
+  showTyped(t)
+  const typing = phase(t, 0.04, 0.36)
   setVars(visual.value, {
     // The caret shows only while typing.
     '--caret': typing > 0 && typing < 1 ? 1 : 0,
-    '--sent': easeOut(phase(p, 0.47, 0.52)),
+    '--sent': easeOut(phase(t, 0.37, 0.41)),
     // The dots fade in, then out as the reply arrives.
-    '--dots': Math.min(phase(p, 0.55, 0.58), 1 - phase(p, 0.61, 0.63)),
-    '--reply': phase(p, 0.62, 0.7),
-    '--loops': phase(p, 0.74, 0.84),
-    '--knot': phase(p, 0.82, 0.87),
-    '--tails': phase(p, 0.85, 0.92),
+    '--dots': Math.min(phase(t, 0.43, 0.46), 1 - phase(t, 0.48, 0.5)),
+    '--reply': phase(t, 0.5, 0.57),
+    '--loops': phase(t, 0.6, 0.7),
+    '--knot': phase(t, 0.68, 0.73),
+    '--tails': phase(t, 0.71, 0.78),
   })
   // The underline under "once I reply" draws as her reply arrives.
-  setVars(replyLine.value, { '--underline': easeOut(phase(p, 0.66, 0.74)) })
+  setVars(replyLine.value, { '--underline': easeOut(phase(t, 0.54, 0.62)) })
 }
 
+defineExpose({ update })
+
 // The message arrives after the catalog loads; show the right amount of it then.
-watch(message, () => showTyped(lastProgress), { flush: 'post' })
+watch(message, () => showTyped(lastTime), { flush: 'post' })
+onMounted(() => showTyped(lastTime))
 </script>
 
 <template>
-  <StoryScene
-    number="03"
-    title="Send it"
-    title-id="story-send-title"
-    :animated="animated"
-    @progress="onProgress"
-  >
-    <template #text>
+  <div class="card-scene">
+    <div class="card-text">
+      <h3 id="story-send-title">Send it</h3>
       <p>Send your request on Instagram.</p>
       <p ref="replyLine" class="reply-line" :class="{ 'is-animated': animated }">
         Your slot is booked <span class="underline">once I reply.</span>
@@ -96,57 +93,49 @@ watch(message, () => showTyped(lastProgress), { flush: 'post' })
         The picture shows a chat on Instagram. The request reads: “{{ message }}” My reply reads:
         “Booked. See you then!”
       </p>
-    </template>
+    </div>
 
-    <template #visual>
-      <div ref="visual" class="send-visual" :class="{ 'is-animated': animated }">
-        <!-- A soft glow behind the chat, like the one behind the hand in scene 01. -->
-        <div class="glow" aria-hidden="true"></div>
-        <StoryFit :active="animated" class="chat-fit">
-          <div class="chat" aria-hidden="true">
-            <div class="chat-top">
-              <span class="avatar"><IconHeart /></span>
-              <span class="handle">{{ site.instagramHandle }}</span>
-            </div>
-
-            <div class="chat-body">
-              <div class="bubble bubble-out">
-                <span class="bubble-fill"></span>
-                <!-- The full text, invisible, keeps the bubble its final size while typing. -->
-                <span class="bubble-size">{{ message }}</span>
-                <!-- Filled in by showTyped(), never by Vue, so the two never fight over it. -->
-                <span class="bubble-text"
-                  ><span ref="typed"></span><span class="caret"></span
-                ></span>
-              </div>
-              <p class="sent-label">Sent</p>
-
-              <div class="typing-dots"><span></span><span></span><span></span></div>
-              <div class="bubble bubble-in">Booked ✓ See you then!</div>
-            </div>
+    <div
+      ref="visual"
+      class="card-picture send-visual"
+      :class="{ 'is-animated': animated }"
+      aria-hidden="true"
+    >
+      <!-- A soft glow behind the chat, like the one behind the hand in scene 1. -->
+      <div class="glow"></div>
+      <StoryFit active class="chat-fit">
+        <div class="chat">
+          <div class="chat-top">
+            <span class="avatar"><IconHeart /></span>
+            <span class="handle">{{ site.instagramHandle }}</span>
           </div>
-        </StoryFit>
 
-        <!-- The end of the story: a bow that ties itself above the real button. -->
-        <div class="finale">
-          <svg class="bow" viewBox="0 0 120 72" aria-hidden="true" focusable="false">
-            <path class="bow-loop" pathLength="1" d="M60 30 C48 14 22 4 14 14 C6 24 24 40 60 30" />
-            <path
-              class="bow-loop"
-              pathLength="1"
-              d="M60 30 C72 14 98 4 106 14 C114 24 96 40 60 30"
-            />
-            <path class="bow-tail" pathLength="1" d="M56 34 C52 46 46 56 38 68" />
-            <path class="bow-tail" pathLength="1" d="M64 34 C68 46 74 56 82 68" />
-            <ellipse class="bow-knot" cx="60" cy="31" rx="6.5" ry="7" />
-          </svg>
-          <RouterLink :to="{ name: 'book-slot' }" class="btn btn-primary btn-lg finale-button">
-            Book a slot
-          </RouterLink>
+          <div class="chat-body">
+            <div class="bubble bubble-out">
+              <span class="bubble-fill"></span>
+              <!-- The full text, invisible, keeps the bubble its final size while typing. -->
+              <span class="bubble-size">{{ message }}</span>
+              <!-- Filled in by showTyped(), never by Vue, so the two never fight over it. -->
+              <span class="bubble-text"><span ref="typed"></span><span class="caret"></span></span>
+            </div>
+            <p class="sent-label">Sent</p>
+
+            <div class="typing-dots"><span></span><span></span><span></span></div>
+            <div class="bubble bubble-in">Booked ✓ See you then!</div>
+          </div>
         </div>
-      </div>
-    </template>
-  </StoryScene>
+      </StoryFit>
+
+      <!-- The end of the story: a ribbon bow that ties itself. -->
+      <svg class="bow" viewBox="0 0 120 72" focusable="false">
+        <path class="bow-loop" pathLength="1" d="M60 30 C48 14 22 4 14 14 C6 24 24 40 60 30" />
+        <path class="bow-loop" pathLength="1" d="M60 30 C72 14 98 4 106 14 C114 24 96 40 60 30" />
+        <path class="bow-tail" pathLength="1" d="M56 34 C52 46 46 56 38 68" />
+        <path class="bow-tail" pathLength="1" d="M64 34 C68 46 74 56 82 68" />
+        <ellipse class="bow-knot" cx="60" cy="31" rx="6.5" ry="7" />
+      </svg>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -155,11 +144,6 @@ watch(message, () => showTyped(lastProgress), { flush: 'post' })
   inset: -6% -15%;
   background: radial-gradient(closest-side, rgba(251, 219, 223, 0.9), transparent);
   pointer-events: none;
-}
-
-.chat-fit,
-.finale {
-  position: relative; /* above the glow */
 }
 
 .send-visual {
@@ -172,6 +156,7 @@ watch(message, () => showTyped(lastProgress), { flush: 'post' })
 }
 
 .chat-fit {
+  position: relative; /* above the glow */
   width: 100%;
 }
 
@@ -290,23 +275,13 @@ watch(message, () => showTyped(lastProgress), { flush: 'post' })
   padding-bottom: 1px;
 }
 
-/* ---- Finale: bow and button ---- */
-.finale {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 24rem;
-  margin-top: 0.25rem;
-}
-
+/* ---- The bow ---- */
 .bow {
-  width: 5.5rem;
+  flex: 0 0 auto;
+  width: 4.5rem;
   height: auto;
   overflow: visible;
-  margin-bottom: -0.6rem;
   position: relative;
-  z-index: 1;
 }
 
 .bow-loop,
@@ -328,10 +303,6 @@ watch(message, () => showTyped(lastProgress), { flush: 'post' })
   stroke-width: 2;
   transform-box: fill-box;
   transform-origin: center;
-}
-
-.finale-button {
-  width: 100%;
 }
 
 /* ---- Scrubbed ---- */
@@ -399,75 +370,15 @@ watch(message, () => showTyped(lastProgress), { flush: 'post' })
 
 /* Own compositor layers: typing and pops never repaint the big glow behind the chat. */
 .is-animated .glow,
-.is-animated .chat,
-.is-animated .finale {
+.is-animated .chat {
   will-change: transform;
 }
 
-/* Pinned on a phone: the chat takes the free space, the finale sits under it. */
-.send-visual.is-animated {
-  height: 100%;
-}
-
 /* The chat keeps its own height, but may shrink (and StoryFit then scales it down)
-   when a short screen has less room. */
-.send-visual.is-animated .chat-fit {
+   when the card has less room. */
+.send-visual.card-picture .chat-fit {
   flex: 0 1 auto;
   height: auto;
   min-height: 0;
-}
-
-.is-animated .finale {
-  flex: 0 0 auto;
-}
-
-@media (max-height: 700px) and (max-width: 991.98px) {
-  .is-animated .bow {
-    width: 4rem;
-  }
-}
-
-/* Laptops: about a quarter larger, so the picture holds its half of the screen. */
-@media (min-width: 992px) {
-  .chat,
-  .finale {
-    max-width: 33rem;
-  }
-
-  .chat {
-    border-radius: 1.9rem;
-  }
-
-  .chat-top {
-    padding: 0.9rem 1.25rem;
-  }
-
-  .avatar {
-    width: 2.5rem;
-    height: 2.5rem;
-    font-size: 1.15rem;
-  }
-
-  .handle {
-    font-size: 1.1rem;
-  }
-
-  .chat-body {
-    padding: 1.25rem 1.15rem 1.4rem;
-    gap: 0.45rem;
-  }
-
-  .bubble {
-    font-size: 1.15rem;
-    padding: 0.75rem 1.05rem;
-  }
-
-  .sent-label {
-    font-size: 0.85rem;
-  }
-
-  .bow {
-    width: 6.5rem;
-  }
 }
 </style>

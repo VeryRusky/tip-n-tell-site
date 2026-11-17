@@ -16,7 +16,3 @@ export function useMediaQuery(query) {
 
   return matches
 }
-
-// The home page story only animates when the visitor has not asked for less motion
-// and the screen is tall enough for a pinned scene to fit (not a phone held sideways).
-export const STORY_MOTION_QUERY = '(prefers-reduced-motion: no-preference) and (min-height: 540px)'

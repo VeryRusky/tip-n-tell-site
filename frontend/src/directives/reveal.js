@@ -1,6 +1,6 @@
 import { prefersReducedMotion } from '@/utils/motion'
 
-// v-reveal: the element rises and fades in the first time it scrolls into view.
+// v-reveal: the element rises a little and fades in (0.3s) the first time it scrolls into view.
 //
 //   <section v-reveal>…</section>        rises in on its own
 //   <section v-reveal="2">…</section>    waits 2 × 60ms first, for a staggered row of cards
@@ -12,6 +12,10 @@ import { prefersReducedMotion } from '@/utils/motion'
 export const vReveal = {
   mounted(element, binding) {
     if (prefersReducedMotion() || !('IntersectionObserver' in window)) return
+
+    // Anything already on screen when the page loads is simply shown: nothing is held back.
+    const box = element.getBoundingClientRect()
+    if (box.top < window.innerHeight && box.bottom > 0) return
 
     element.classList.add('reveal')
     element.style.setProperty('--reveal-delay', `${(binding.value ?? 0) * 60}ms`)

@@ -26,9 +26,12 @@ export function easeOut(t) {
 
 // Writes several CSS custom properties onto an element in one go, e.g.
 // setVars(stage, { '--draw': 0.5, '--paint': 0 }). Rounded to keep the style attribute short.
+// A value that hasn't changed is not written again: every write makes the browser restyle
+// the elements that use it, and most phases sit at 0 or 1 most of the time.
 export function setVars(element, vars) {
   if (!element) return
   for (const [name, value] of Object.entries(vars)) {
-    element.style.setProperty(name, typeof value === 'number' ? value.toFixed(4) : value)
+    const text = typeof value === 'number' ? value.toFixed(4) : value
+    if (element.style.getPropertyValue(name) !== text) element.style.setProperty(name, text)
   }
 }

@@ -1,68 +1,45 @@
 <script setup>
-import { ref } from 'vue'
 import { site, instagramProfileUrl } from '@/config/site'
-import { useMediaQuery, STORY_MOTION_QUERY } from '@/composables/useMediaQuery'
 import { useStorySample } from '@/composables/useStorySample'
-import { setVars } from '@/utils/motion'
+import { claimOpening } from '@/utils/opening'
 import { vReveal } from '@/directives/reveal'
 import StoryOpening from '@/components/story/StoryOpening.vue'
-import StoryDesign from '@/components/story/StoryDesign.vue'
-import StoryCalendar from '@/components/story/StoryCalendar.vue'
-import StoryMessage from '@/components/story/StoryMessage.vue'
+import StoryPlayer from '@/components/story/StoryPlayer.vue'
 import PriceList from '@/components/PriceList.vue'
 import DesignGallery from '@/components/DesignGallery.vue'
 import PolicyTiles from '@/components/PolicyTiles.vue'
 import IconPin from '@/components/icons/IconPin.vue'
 import IconBow from '@/components/icons/IconBow.vue'
 
-// The scroll story only animates when motion is welcome and the screen is tall enough.
-// Otherwise the three scenes are ordinary sections showing their finished pictures.
-const animated = useMediaQuery(STORY_MOTION_QUERY)
+// Does the opening animation play this time? (First visit in a browser session only.)
+// If it does, the story waits a moment so the two don't compete for attention.
+const openingPlays = claimOpening()
 
-// Real calendar data for scenes 02 and 03.
+// Real calendar data for the story's "Pick a time" and "Send it" scenes.
 const { month, slotsByDate, sampleSlot } = useStorySample()
-
-// The three thin bars under the header fill as each scene plays, like Instagram stories.
-const progressBars = ref(null)
-// Scenes far from the screen stop measuring (to save work), so after one big jump a scene
-// that was skipped over can still hold an old value. The bars therefore also follow from the
-// scene being played: every scene before it is complete, every scene after it not started.
-function showSceneProgress(scene, progress) {
-  const bars = {}
-  for (let n = 1; n <= 3; n++) {
-    if (n === scene) bars[`--scene-${n}`] = progress
-    else if (n < scene && progress > 0) bars[`--scene-${n}`] = 1
-    else if (n > scene && progress < 1) bars[`--scene-${n}`] = 0
-  }
-  setVars(progressBars.value, bars)
-}
 </script>
 
 <template>
   <main id="main" class="home">
-    <StoryOpening />
-
-    <div class="story" :class="{ 'is-animated': animated }">
-      <!-- Decorative: each scene has its own heading, so screen readers don't need this. -->
-      <div v-if="animated" ref="progressBars" class="story-progress" aria-hidden="true">
-        <div class="container-lg story-progress-bars">
-          <span v-for="n in 3" :key="n" :style="{ '--fill': `var(--scene-${n}, 0)` }"></span>
-        </div>
+    <!--
+      The hero.
+        phones:  the opening (wordmark, tagline, Book a slot), then the story card just under
+                 it, so the top of the card shows on the first screen; Book a slot under it.
+        laptops: one screen, two columns: the opening on the left, the story card on the right.
+    -->
+    <div class="container-lg hero">
+      <StoryOpening class="hero-opening" :playing="openingPlays" />
+      <div class="hero-story">
+        <StoryPlayer
+          :month="month"
+          :slots-by-date="slotsByDate"
+          :sample-slot="sampleSlot"
+          :start-delay="openingPlays ? 1300 : 300"
+        />
+        <RouterLink :to="{ name: 'book-slot' }" class="btn btn-primary btn-lg w-100 d-lg-none">
+          Book a slot
+        </RouterLink>
       </div>
-
-      <StoryDesign :animated="animated" @progress="(p) => showSceneProgress(1, p)" />
-      <StoryCalendar
-        :animated="animated"
-        :month="month"
-        :slots-by-date="slotsByDate"
-        :sample-slot="sampleSlot"
-        @progress="(p) => showSceneProgress(2, p)"
-      />
-      <StoryMessage
-        :animated="animated"
-        :sample-slot="sampleSlot"
-        @progress="(p) => showSceneProgress(3, p)"
-      />
     </div>
 
     <!--
@@ -76,13 +53,7 @@ function showSceneProgress(scene, progress) {
     -->
     <div class="container-lg rest">
       <div class="row g-4">
-        <section
-          id="prices"
-          v-reveal
-          class="col-md-7 order-md-1"
-          aria-labelledby="prices-title"
-          tabindex="-1"
-        >
+        <section id="prices" v-reveal class="col-md-7 order-md-1" aria-labelledby="prices-title">
           <div class="panel h-100">
             <h2 id="prices-title">Prices</h2>
             <PriceList />
@@ -142,50 +113,57 @@ function showSceneProgress(scene, progress) {
 </template>
 
 <style scoped>
-/*
-  `overflow-x: clip` stops anything that slides in from the side making the page scroll
-  sideways. Unlike `overflow: hidden`, it does not break position: sticky inside it.
-*/
-.story {
-  position: relative;
-  overflow-x: clip;
+/* ---- Hero ---- */
+.hero {
+  display: grid;
+  gap: 1rem;
+  padding-top: 1rem;
 }
 
-/* ---- Story progress: three thin bars pinned under the header while the scenes play ---- */
-.story-progress {
-  position: sticky;
-  top: var(--tt-header-h);
-  z-index: 2;
-  height: 0; /* takes no space; the bars hang below it */
-}
-
-.story-progress-bars {
+.hero-story {
   display: flex;
-  gap: 0.35rem;
-  padding-top: 0.6rem;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.story-progress-bars span {
-  position: relative;
-  flex: 1;
-  height: 3px;
-  border-radius: 3px;
-  background: rgba(158, 74, 85, 0.16);
-  overflow: hidden;
+/* Tablets: keep the card story-shaped and centred rather than stretched across the page. */
+@media (min-width: 576px) and (max-width: 991.98px) {
+  .hero-story {
+    align-items: center;
+  }
+
+  .hero-story > * {
+    width: 100%;
+    max-width: 28rem;
+  }
 }
 
-.story-progress-bars span::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--tt-deep-rose);
-  transform-origin: left center;
-  transform: scaleX(var(--fill));
-}
-
+/*
+  Laptops: the hero fills one screen under the header (and the demo notice):
+  the opening on the left, the story card on the right, shaped like a phone story.
+*/
 @media (min-width: 992px) {
-  .story-progress-bars {
-    max-width: 32rem;
+  .hero {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+    gap: 2.5rem;
+    height: calc(100svh - var(--tt-header-h) - var(--tt-banner-h, 0px));
+    min-height: 34rem;
+    max-height: 52rem;
+    padding-top: 1.25rem;
+    padding-bottom: 1.25rem;
+  }
+
+  .hero-story {
+    justify-content: center;
+    /* The card's height follows the screen; its width keeps a story's shape. */
+    --story-height: 100%;
+    height: 100%;
+  }
+
+  .hero-story :deep(.story-card) {
+    width: auto;
+    aspect-ratio: 10 / 16;
   }
 }
 
@@ -196,10 +174,6 @@ function showSceneProgress(scene, progress) {
 
 #prices {
   scroll-margin-top: calc(var(--tt-header-h) + 1rem);
-}
-
-#prices:focus {
-  outline: none;
 }
 
 .where-area {
