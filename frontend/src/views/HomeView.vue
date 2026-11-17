@@ -24,8 +24,17 @@ const { month, slotsByDate, sampleSlot } = useStorySample()
 
 // The three thin bars under the header fill as each scene plays, like Instagram stories.
 const progressBars = ref(null)
+// Scenes far from the screen stop measuring (to save work), so after one big jump a scene
+// that was skipped over can still hold an old value. The bars therefore also follow from the
+// scene being played: every scene before it is complete, every scene after it not started.
 function showSceneProgress(scene, progress) {
-  setVars(progressBars.value, { [`--scene-${scene}`]: progress })
+  const bars = {}
+  for (let n = 1; n <= 3; n++) {
+    if (n === scene) bars[`--scene-${n}`] = progress
+    else if (n < scene && progress > 0) bars[`--scene-${n}`] = 1
+    else if (n > scene && progress < 1) bars[`--scene-${n}`] = 0
+  }
+  setVars(progressBars.value, bars)
 }
 </script>
 

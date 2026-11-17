@@ -8,6 +8,10 @@ personal details. This draft runs on sample data with no backend.
 
 Built with Vue 3 (`<script setup>`), Vite, Vue Router, Pinia and Bootstrap 5, in plain JavaScript.
 
+**Version B** (this branch) tells the booking story on the home page with scroll-driven scenes
+and adds small motion to the booking steps. See `docs/version-b-notes.md`. To run it beside
+version A, use `pnpm dev --port 5180 --strictPort`.
+
 ## Run it
 
 ```bash
