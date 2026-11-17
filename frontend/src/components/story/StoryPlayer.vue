@@ -13,6 +13,13 @@ import StoryMessage from './StoryMessage.vue'
 // by itself (about 4 seconds each), with bars at the top that fill as each scene plays.
 // It ends on the last scene and offers Replay; it never loops.
 //
+// Controls, as on Instagram stories (no button row):
+// - tap the left third of the picture for the previous scene, the rest for the next
+//   (real buttons, so they also work with a keyboard and screen readers)
+// - press and hold the picture to pause; let go to carry on
+// - a small pause / play / replay button at the right of the header row
+// - the arrow keys, while anything in the card has focus
+//
 // Polite behaviour:
 // - it starts only when most of the card is on screen, and pauses when the card scrolls
 //   away or the tab is hidden (and carries on when it comes back)
@@ -124,6 +131,52 @@ function togglePlay() {
   }
 }
 
+// ---- Press and hold the picture to pause, as on Instagram ----
+// A press that lasts longer than HOLD_MS pauses the story until the finger (or mouse
+// button) lifts. The click that follows a hold is ignored, so a hold never also moves to
+// the next or previous scene. A quick tap is an ordinary click and does move.
+const HOLD_MS = 250
+let holdTimer = 0
+let holding = false
+let pausedByHold = false
+let ignoreNextClick = false
+
+function pressStart(event) {
+  if (event.button > 0) return // only the main mouse button, a finger or a pen
+  clearTimeout(holdTimer)
+  holding = false
+  ignoreNextClick = false
+  holdTimer = setTimeout(() => {
+    holding = true
+    if (status.value === 'playing') {
+      timeline.pause()
+      pausedByHold = true
+    }
+  }, HOLD_MS)
+}
+
+function pressEnd() {
+  clearTimeout(holdTimer)
+  if (!holding) return
+  holding = false
+  // Some browsers send no click after a long press; don't let the flag swallow a later tap.
+  ignoreNextClick = true
+  setTimeout(() => (ignoreNextClick = false), 400)
+  if (pausedByHold) {
+    pausedByHold = false
+    if (status.value === 'playing') timeline.play()
+  }
+}
+
+function tap(direction) {
+  if (ignoreNextClick) {
+    ignoreNextClick = false
+    return
+  }
+  if (direction === 'next') next()
+  else previous()
+}
+
 // Arrow keys move between scenes while the card (or a button in it) has focus.
 function onKey(event) {
   if (event.key === 'ArrowRight') {
@@ -136,9 +189,9 @@ function onKey(event) {
 }
 
 const playLabel = computed(() => {
-  if (status.value === 'playing') return 'Pause'
-  if (status.value === 'ended') return 'Replay'
-  return 'Play'
+  if (status.value === 'playing') return 'Pause story'
+  if (status.value === 'ended') return 'Replay story'
+  return 'Play story'
 })
 
 // ---- Only play while it can be seen ----
@@ -206,9 +259,8 @@ onBeforeUnmount(() => {
       ref="card"
       class="story-card"
       :class="{ 'is-animated': animated }"
-      tabindex="0"
       role="group"
-      aria-label="How booking works, in three steps. Use the arrow keys or the buttons to move between steps."
+      aria-label="How booking works, in three steps"
       @keydown="onKey"
     >
       <!-- Progress bars, like Instagram stories. Decorative: the controls say where you are. -->
@@ -220,10 +272,28 @@ onBeforeUnmount(() => {
         ></span>
       </div>
 
-      <div class="story-head" aria-hidden="true">
-        <span class="story-avatar"><IconHeart /></span>
-        <span class="story-handle">{{ site.instagramHandle }}</span>
-        <span class="story-label">How booking works</span>
+      <div class="story-head">
+        <span class="story-avatar" aria-hidden="true"><IconHeart /></span>
+        <span class="story-handle" aria-hidden="true">{{ site.instagramHandle }}</span>
+        <span class="story-label" aria-hidden="true">How booking works</span>
+        <!-- Pause / play, or replay at the end. Not shown with Reduce Motion: nothing plays. -->
+        <button
+          v-if="animated"
+          type="button"
+          class="story-toggle"
+          :aria-label="playLabel"
+          @click="togglePlay"
+        >
+          <svg v-if="status === 'playing'" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8.5 5.5v13M15.5 5.5v13" />
+          </svg>
+          <svg v-else-if="status === 'ended'" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v4.2h4.2" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+            <path class="solid" d="M8 5.5l10 6.5-10 6.5z" />
+          </svg>
+        </button>
       </div>
 
       <div class="story-scenes">
@@ -254,42 +324,39 @@ onBeforeUnmount(() => {
           :aria-hidden="index !== 2"
         />
 
-        <!-- Tap the left or right of the picture to go back or on, as on Instagram.
-             (Mouse and touch only; keyboard users have the buttons and arrow keys.) -->
-        <div class="tap-zone tap-back" aria-hidden="true" @click="previous"></div>
-        <div class="tap-zone tap-next" aria-hidden="true" @click="next"></div>
-      </div>
-
-      <div class="story-controls">
         <!--
-          The ends use aria-disabled rather than disabled, so a keyboard user's focus is never
-          dropped. While playing, Previous on the first scene simply starts it again.
+          Tap zones over the picture, as on Instagram: the left third goes back, the rest goes
+          on. They are real buttons (keyboard and screen readers can use them) with no visible
+          chrome; on devices with a mouse a small chevron shows on hover or keyboard focus.
+          The ends use aria-disabled rather than disabled, so keyboard focus is never dropped.
         -->
         <button
           type="button"
-          class="story-button"
+          class="tap-zone tap-back"
+          aria-label="Previous scene"
           :aria-disabled="!animated && index === 0"
-          @click="previous"
+          @pointerdown="pressStart"
+          @pointerup="pressEnd"
+          @pointercancel="pressEnd"
+          @pointerleave="pressEnd"
+          @contextmenu.prevent
+          @click="tap('previous')"
         >
-          <span aria-hidden="true">‹</span> Previous
-        </button>
-        <button v-if="animated" type="button" class="story-button story-play" @click="togglePlay">
-          <svg v-if="status === 'playing'" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M8 5v14M16 5v14" />
-          </svg>
-          <svg v-else-if="status === 'ended'" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5" />
-          </svg>
-          <svg v-else viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z" /></svg>
-          {{ playLabel }}
+          <span class="tap-hint" aria-hidden="true">‹</span>
         </button>
         <button
           type="button"
-          class="story-button"
+          class="tap-zone tap-next"
+          aria-label="Next scene"
           :aria-disabled="!animated && index === STEPS.length - 1"
-          @click="next"
+          @pointerdown="pressStart"
+          @pointerup="pressEnd"
+          @pointercancel="pressEnd"
+          @pointerleave="pressEnd"
+          @contextmenu.prevent
+          @click="tap('next')"
         >
-          Next <span aria-hidden="true">›</span>
+          <span class="tap-hint" aria-hidden="true">›</span>
         </button>
       </div>
 
@@ -312,16 +379,12 @@ onBeforeUnmount(() => {
   flex-direction: column;
   height: var(--story-height, clamp(30rem, calc(100svh - var(--tt-header-h) - 6rem), 46rem));
   margin: 0 auto;
-  padding: 0.75rem 0.9rem 0.6rem;
+  padding: 0.75rem 0.9rem 0.9rem;
   background: linear-gradient(180deg, var(--tt-white), var(--tt-blush));
   border: 1px solid var(--tt-line);
   border-radius: 1.75rem;
   box-shadow: 0 24px 50px -32px rgba(158, 74, 85, 0.55);
   overflow: hidden;
-}
-
-.story-card:focus-visible {
-  outline-offset: 4px;
 }
 
 /* ---- Bars ---- */
@@ -377,6 +440,46 @@ onBeforeUnmount(() => {
   color: var(--tt-muted);
 }
 
+/* Small icon button at the right end of the header: 32px to see, 44px to tap. */
+.story-toggle {
+  position: relative;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--tt-line);
+  border-radius: 50%;
+  background: var(--tt-white);
+  color: var(--tt-deep-rose);
+}
+
+.story-toggle::before {
+  content: '';
+  position: absolute;
+  inset: -6px; /* the 44px tap area */
+}
+
+.story-toggle:hover {
+  border-color: var(--tt-deep-rose);
+}
+
+.story-toggle svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.story-toggle .solid {
+  fill: currentColor;
+}
+
 /* ---- Scenes: stacked in one place, the current one fades in ---- */
 .story-scenes {
   position: relative;
@@ -426,73 +529,80 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
+/* ---- Tap zones: invisible buttons over the scene (left third back, the rest on) ---- */
 .tap-zone {
   position: absolute;
-  top: 25%;
+  top: 6.25rem; /* just below the scene's heading and line, so they cover the picture */
   bottom: 0;
-  width: 35%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
   cursor: pointer;
+  /* No grey flash, callout menu or text selection when a finger presses and holds. */
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  touch-action: manipulation;
 }
 
 .tap-back {
   left: 0;
+  width: 33.333%;
+  justify-content: flex-start;
 }
 
 .tap-next {
   right: 0;
+  width: 66.667%;
+  justify-content: flex-end;
 }
 
-/* ---- Controls ---- */
-.story-controls {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.4rem;
-  padding-top: 0.5rem;
+.tap-zone[aria-disabled='true'] {
+  cursor: default;
 }
 
-.story-button {
+/* Keyboard focus: a ring just inside the zone, so it is clear what Enter will do. */
+.tap-zone:focus-visible {
+  outline: 3px solid var(--tt-deep-rose);
+  outline-offset: -3px;
+  border-radius: 1rem;
+}
+
+/* The chevron hint: hidden at rest; fades in on hover (mouse) or keyboard focus. */
+.tap-hint {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 0.9rem;
-  border: 1.5px solid var(--tt-line);
-  border-radius: 999px;
-  background: var(--tt-white);
+  width: 2.25rem;
+  height: 2.25rem;
+  margin: 0 0.15rem;
+  border-radius: 50%;
+  background: rgba(255, 250, 246, 0.92);
+  border: 1px solid var(--tt-line);
   color: var(--tt-deep-rose);
-  font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 1.6rem;
+  line-height: 1;
+  padding-bottom: 0.2rem;
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
 }
 
-.story-button:hover:not([aria-disabled='true']) {
-  border-color: var(--tt-deep-rose);
+.tap-zone:focus-visible .tap-hint {
+  opacity: 1;
 }
 
-.story-button[aria-disabled='true'] {
-  cursor: default;
-  color: #b9a2a5;
-  background: transparent;
+@media (hover: hover) and (pointer: fine) {
+  .tap-zone:hover:not([aria-disabled='true']) .tap-hint {
+    opacity: 1;
+  }
 }
 
-.story-play {
-  min-width: 6.5rem;
-}
-
-.story-play svg {
-  width: 1rem;
-  height: 1rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.story-play svg path[d^='M8 5l'] {
-  fill: currentColor;
+.story-toggle:focus-visible {
+  outline-offset: 2px;
+  border-radius: 50%;
 }
 
 @media (min-width: 992px) {
