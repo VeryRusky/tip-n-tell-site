@@ -24,3 +24,7 @@ design-reference/
 .DS_Store
 Thumbs.db
 *.log
+
+# Private working notes about the business. Keep them on this computer only.
+docs/questions-for-her.md
+docs/draft-notes.md
