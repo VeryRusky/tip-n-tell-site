@@ -157,7 +157,7 @@ onBeforeUnmount(() => resizeObserver?.disconnect())
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 2.6rem 1.5rem 2.2rem;
+  padding: 2.6rem 1.5rem 3rem; /* extra room at the bottom for the corner sparkle */
   background: radial-gradient(ellipse at 50% 35%, var(--tt-blush), transparent 70%);
   border-radius: 1.75rem;
 }
@@ -270,22 +270,24 @@ onBeforeUnmount(() => resizeObserver?.disconnect())
   animation: twinkle 5s ease-in-out infinite;
 }
 
+/* The sparkles sit in the frame's corners, inside the frame's padding, so they never
+   touch the text however the lines wrap. */
 .corner-sparkle-1 {
-  top: 1.4rem;
-  left: 1.6rem;
+  top: 1.1rem;
+  left: 1.25rem;
 }
 
 .corner-sparkle-2 {
-  top: 2.6rem;
-  right: 1.8rem;
+  top: 1.45rem;
+  right: 1.45rem;
   width: 0.95rem;
   height: 0.95rem;
   animation-delay: -1.7s;
 }
 
 .corner-sparkle-3 {
-  bottom: 1.6rem;
-  right: 2.4rem;
+  bottom: 0.95rem;
+  right: 1.3rem;
   width: 1.1rem;
   height: 1.1rem;
   animation-delay: -3.3s;
