@@ -61,9 +61,11 @@ const outerFrame = computed(() => (frameSize.value.width ? notchedFrame(1, 22) :
 const innerFrame = computed(() => (frameSize.value.width ? notchedFrame(8, 15) : ''))
 
 onMounted(() => {
-  resizeObserver = new ResizeObserver(([entry]) => {
-    const { width, height } = entry.contentRect
-    frameSize.value = { width: Math.round(width), height: Math.round(height) }
+  // Measure the whole box, padding included (the SVG covers all of it). contentRect would
+  // leave the padding out, and the frame would then be drawn too small and shifted inwards.
+  resizeObserver = new ResizeObserver(() => {
+    const box = frameBox.value
+    frameSize.value = { width: box.offsetWidth, height: box.offsetHeight }
   })
   resizeObserver.observe(frameBox.value)
 })

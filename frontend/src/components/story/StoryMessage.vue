@@ -103,37 +103,45 @@ onMounted(() => showTyped(lastTime))
     >
       <!-- A soft glow behind the chat, like the one behind the hand in scene 1. -->
       <div class="glow"></div>
-      <StoryFit active class="chat-fit">
-        <div class="chat">
-          <div class="chat-top">
-            <span class="avatar"><IconHeart /></span>
-            <span class="handle">{{ site.instagramHandle }}</span>
-          </div>
-
-          <div class="chat-body">
-            <div class="bubble bubble-out">
-              <span class="bubble-fill"></span>
-              <!-- The full text, invisible, keeps the bubble its final size while typing. -->
-              <span class="bubble-size">{{ message }}</span>
-              <!-- Filled in by showTyped(), never by Vue, so the two never fight over it. -->
-              <span class="bubble-text"><span ref="typed"></span><span class="caret"></span></span>
+      <StoryFit active :max-scale="1.35" class="chat-fit">
+        <!-- The chat and its bow are one picture, scaled together and kept centred. -->
+        <div class="chat-group">
+          <div class="chat">
+            <div class="chat-top">
+              <span class="avatar"><IconHeart /></span>
+              <span class="handle">{{ site.instagramHandle }}</span>
             </div>
-            <p class="sent-label">Sent</p>
 
-            <div class="typing-dots"><span></span><span></span><span></span></div>
-            <div class="bubble bubble-in">Booked ✓ See you then!</div>
+            <div class="chat-body">
+              <div class="bubble bubble-out">
+                <span class="bubble-fill"></span>
+                <!-- The full text, invisible, keeps the bubble its final size while typing. -->
+                <span class="bubble-size">{{ message }}</span>
+                <!-- Filled in by showTyped(), never by Vue, so the two never fight over it. -->
+                <span class="bubble-text"
+                  ><span ref="typed"></span><span class="caret"></span
+                ></span>
+              </div>
+              <p class="sent-label">Sent</p>
+
+              <div class="typing-dots"><span></span><span></span><span></span></div>
+              <div class="bubble bubble-in">Booked ✓ See you then!</div>
+            </div>
           </div>
+          <!-- The end of the story: a ribbon bow that ties itself. -->
+          <svg class="bow" viewBox="0 0 120 72" focusable="false">
+            <path class="bow-loop" pathLength="1" d="M60 30 C48 14 22 4 14 14 C6 24 24 40 60 30" />
+            <path
+              class="bow-loop"
+              pathLength="1"
+              d="M60 30 C72 14 98 4 106 14 C114 24 96 40 60 30"
+            />
+            <path class="bow-tail" pathLength="1" d="M56 34 C52 46 46 56 38 68" />
+            <path class="bow-tail" pathLength="1" d="M64 34 C68 46 74 56 82 68" />
+            <ellipse class="bow-knot" cx="60" cy="31" rx="6.5" ry="7" />
+          </svg>
         </div>
       </StoryFit>
-
-      <!-- The end of the story: a ribbon bow that ties itself. -->
-      <svg class="bow" viewBox="0 0 120 72" focusable="false">
-        <path class="bow-loop" pathLength="1" d="M60 30 C48 14 22 4 14 14 C6 24 24 40 60 30" />
-        <path class="bow-loop" pathLength="1" d="M60 30 C72 14 98 4 106 14 C114 24 96 40 60 30" />
-        <path class="bow-tail" pathLength="1" d="M56 34 C52 46 46 56 38 68" />
-        <path class="bow-tail" pathLength="1" d="M64 34 C68 46 74 56 82 68" />
-        <ellipse class="bow-knot" cx="60" cy="31" rx="6.5" ry="7" />
-      </svg>
     </div>
   </div>
 </template>
@@ -146,7 +154,10 @@ onMounted(() => showTyped(lastTime))
   pointer-events: none;
 }
 
+/* A size container, so the chat window can grow taller when the card is tall
+   (cqh = 1% of this box's height), like a real chat screen with the messages at the bottom. */
 .send-visual {
+  container-type: size;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -200,6 +211,8 @@ onMounted(() => showTyped(lastTime))
 .chat-body {
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
+  min-height: clamp(0px, 50cqh, 22rem);
   padding: 1rem 0.9rem 1.1rem;
   gap: 0.35rem;
 }
@@ -276,8 +289,18 @@ onMounted(() => showTyped(lastTime))
 }
 
 /* ---- The bow ---- */
+.chat-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 24rem;
+  margin: 0 auto;
+}
+
 .bow {
   flex: 0 0 auto;
+  margin-top: 0.5rem;
   width: 4.5rem;
   height: auto;
   overflow: visible;
@@ -376,8 +399,10 @@ onMounted(() => showTyped(lastTime))
 
 /* The chat keeps its own height, but may shrink (and StoryFit then scales it down)
    when the card has less room. */
+/* The chat takes the free height above the bow; StoryFit then scales it to fit that space
+   (down in a small card, up to 1.35x in a tall one). */
 .send-visual.card-picture .chat-fit {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   height: auto;
   min-height: 0;
 }

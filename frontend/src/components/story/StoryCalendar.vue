@@ -109,7 +109,7 @@ defineExpose({ update })
     <div class="card-picture calendar-visual" :class="{ 'is-animated': animated }">
       <!-- A soft glow behind the card, like the one behind the hand in scene 01. -->
       <div class="glow" aria-hidden="true"></div>
-      <StoryFit active>
+      <StoryFit active :max-scale="1.35">
         <div
           ref="visual"
           class="mini"
@@ -186,8 +186,11 @@ defineExpose({ update })
 </template>
 
 <style scoped>
+/* A size container, so the calendar's rows can grow when the card is tall (cqh = 1% of
+   this box's height), instead of the calendar floating in empty space. */
 .calendar-visual {
   position: relative;
+  container-type: size;
 }
 
 /* Own compositor layers: the card's moving pieces never repaint the big glow behind it. */
@@ -247,7 +250,7 @@ defineExpose({ update })
   position: relative;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  grid-auto-rows: 2.6rem;
+  grid-auto-rows: clamp(2.6rem, 9cqh, 3.5rem);
 }
 
 .hline,

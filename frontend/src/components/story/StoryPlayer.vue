@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { site } from '@/config/site'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import { useTimeline } from '@/composables/useTimeline'
@@ -101,21 +101,42 @@ function announce() {
   announcement.value = `Step ${index.value + 1} of ${STEPS.length}: ${STEPS[index.value]}`
 }
 
+// There is nothing before the first scene or after the last: at the ends the matching tap
+// zone is switched off and hidden, and the arrow key does nothing. (Replaying is the header
+// button's job.)
+const canGoBack = computed(() => index.value > 0)
+const canGoOn = computed(() => index.value < STEPS.length - 1)
+
 function next() {
   clearTimeout(startTimer)
-  if (index.value < STEPS.length - 1) goTo(index.value + 1)
-  else if (animated.value)
-    goTo(index.value) // last scene: play it again
-  else return // Reduce Motion: already at the last step
+  if (!canGoOn.value) return
+  goTo(index.value + 1)
   announce()
 }
 
 function previous() {
   clearTimeout(startTimer)
-  if (index.value === 0 && !animated.value) return // Reduce Motion: already at the first step
-  goTo(Math.max(0, index.value - 1))
+  if (!canGoBack.value) return
+  goTo(index.value - 1)
   announce()
 }
+
+// If keyboard focus is on a tap zone that is about to be switched off (the story just
+// reached an end), move it to the other zone, or to the header button, so it isn't lost.
+watch(
+  index,
+  () => {
+    const focused = document.activeElement
+    if (!focused?.classList?.contains('tap-zone')) return
+    nextTick(() => {
+      if (!focused.disabled) return
+      const other = card.value?.querySelector('.tap-zone:not(:disabled)')
+      const toggle = card.value?.querySelector('.story-toggle')
+      ;(other ?? toggle ?? card.value)?.focus({ preventScroll: true })
+    })
+  },
+  { flush: 'pre' },
+)
 
 function togglePlay() {
   clearTimeout(startTimer)
@@ -331,13 +352,15 @@ onBeforeUnmount(() => {
           Tap zones over the picture, as on Instagram: the left third goes back, the rest goes
           on. They are real buttons (keyboard and screen readers can use them) with no visible
           chrome; on devices with a mouse a small chevron shows on hover or keyboard focus.
-          The ends use aria-disabled rather than disabled, so keyboard focus is never dropped.
+          At the ends the matching zone is disabled and hidden from screen readers: there is
+          nowhere to go. (If it had keyboard focus, the watch above moves focus on.)
         -->
         <button
           type="button"
           class="tap-zone tap-back"
           aria-label="Previous scene"
-          :aria-disabled="!animated && index === 0"
+          :disabled="!canGoBack"
+          :aria-hidden="!canGoBack ? 'true' : null"
           @pointerdown="pressStart"
           @pointerup="pressEnd"
           @pointercancel="pressEnd"
@@ -351,7 +374,8 @@ onBeforeUnmount(() => {
           type="button"
           class="tap-zone tap-next"
           aria-label="Next scene"
-          :aria-disabled="!animated && index === STEPS.length - 1"
+          :disabled="!canGoOn"
+          :aria-hidden="!canGoOn ? 'true' : null"
           @pointerdown="pressStart"
           @pointerup="pressEnd"
           @pointercancel="pressEnd"
@@ -593,7 +617,7 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
 }
 
-.tap-zone[aria-disabled='true'] {
+.tap-zone:disabled {
   cursor: default;
 }
 
@@ -628,7 +652,7 @@ onBeforeUnmount(() => {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .tap-zone:hover:not([aria-disabled='true']) .tap-hint {
+  .tap-zone:hover:not(:disabled) .tap-hint {
     opacity: 1;
   }
 }

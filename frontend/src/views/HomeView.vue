@@ -139,7 +139,7 @@ const { month, slotsByDate, sampleSlot } = useStorySample()
 }
 
 /*
-  Laptops: the hero fills one screen under the header (and the demo notice):
+  Laptops: the hero is at least one screen under the header (and the demo notice):
   the opening on the left, the story card on the right, shaped like a phone story.
 */
 @media (min-width: 992px) {
@@ -147,9 +147,8 @@ const { month, slotsByDate, sampleSlot } = useStorySample()
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: stretch;
     gap: 2.5rem;
-    height: calc(100svh - var(--tt-header-h) - var(--tt-banner-h, 0px));
-    min-height: 34rem;
-    max-height: 52rem;
+    /* At least one screen, but it grows with its content: the frame always contains the text. */
+    min-height: clamp(34rem, calc(100svh - var(--tt-header-h) - var(--tt-banner-h, 0px)), 52rem);
     padding-top: 1.25rem;
     padding-bottom: 1.25rem;
   }
