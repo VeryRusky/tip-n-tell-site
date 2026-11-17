@@ -2,7 +2,8 @@ import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { useCatalogStore } from '@/stores/catalog'
 import { site } from '@/config/site'
-import { formatShortDate, formatTime, formatPrice } from '@/utils/format'
+import { formatPrice } from '@/utils/format'
+import { buildRequestMessage } from '@/utils/message'
 
 // The value of designId when the customer brings their own design.
 export const OWN_DESIGN = 'own'
@@ -77,27 +78,16 @@ export const useBookingStore = defineStore('booking', () => {
   })
 
   // ---- The message she receives on Instagram ----
-  const message = computed(() => {
-    if (!slot.value) return ''
-    const special = slot.value.special ? ' (specially opened slot)' : ''
-    const lines = [
-      `Hi! I'd like to book ${formatShortDate(slot.value.date)}, ${formatTime(slot.value.time)}${special}.`,
-    ]
-    if (service.value) lines.push(`Service: ${service.value.name.toLowerCase()}.`)
-    if (isOwnDesign.value) lines.push(`Design: my own design (I'll send a picture).`)
-    else if (design.value) lines.push(`Design: #${design.value.id} ${design.value.name}.`)
-    if (addOns.value.length > 0) {
-      lines.push(`Add-on: ${addOns.value.map((a) => a.name.toLowerCase()).join(', ')}.`)
-    }
-    if (service.value) {
-      lines.push(
-        isOwnDesign.value
-          ? `Estimated ${formatPrice(estimate.value)} plus your quote for the design.`
-          : `Estimated ${formatPrice(estimate.value)}.`,
-      )
-    }
-    return lines.join(' ')
-  })
+  const message = computed(() =>
+    buildRequestMessage({
+      slot: slot.value,
+      service: service.value,
+      design: design.value,
+      ownDesign: isOwnDesign.value,
+      addOns: addOns.value,
+      estimate: estimate.value,
+    }),
+  )
 
   // ---- Actions ----
   function chooseSlot(newSlot) {

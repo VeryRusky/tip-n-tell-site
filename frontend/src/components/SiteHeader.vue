@@ -1,5 +1,21 @@
 <script setup>
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import BrandWordmark from './BrandWordmark.vue'
+
+// Keep --tt-header-h (theme.css) equal to this header's real height, so the pinned
+// scenes on the home page always sit just below it, even if the text size changes.
+const header = ref(null)
+let observer = null
+
+onMounted(() => {
+  observer = new ResizeObserver(() => {
+    const height = header.value.getBoundingClientRect().height
+    document.documentElement.style.setProperty('--tt-header-h', `${height}px`)
+  })
+  observer.observe(header.value)
+})
+
+onBeforeUnmount(() => observer?.disconnect())
 </script>
 
 <template>
@@ -8,7 +24,7 @@ import BrandWordmark from './BrandWordmark.vue'
     (there are only two, so no hamburger menu is needed), and "sticky-top" keeps
     the bar, with its "Book a slot" button, in view while scrolling.
   -->
-  <header class="site-header sticky-top">
+  <header ref="header" class="site-header sticky-top">
     <nav class="navbar navbar-expand" aria-label="Main">
       <div class="container-lg">
         <RouterLink to="/" class="navbar-brand home-link">

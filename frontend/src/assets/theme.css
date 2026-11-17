@@ -24,6 +24,14 @@
   --tt-radius: 1rem;
   --tt-radius-small: 0.6rem;
   --tt-tap: 48px; /* minimum height of anything you tap */
+
+  /* Height of the sticky header. SiteHeader.vue measures itself and updates this,
+     so pinned scenes on the home page sit exactly under it. */
+  --tt-header-h: 61px;
+
+  /* Motion: entrances ease out; small pops may overshoot a little. */
+  --tt-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --tt-ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /*

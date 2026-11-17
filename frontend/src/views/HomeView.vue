@@ -1,184 +1,195 @@
 <script setup>
-import { computed, onMounted } from 'vue'
+import { ref } from 'vue'
 import { site, instagramProfileUrl } from '@/config/site'
-import { useCatalogStore } from '@/stores/catalog'
-import { formatPrice } from '@/utils/format'
-import BrandWordmark from '@/components/BrandWordmark.vue'
-import HowItWorks from '@/components/HowItWorks.vue'
+import { useMediaQuery, STORY_MOTION_QUERY } from '@/composables/useMediaQuery'
+import { useStorySample } from '@/composables/useStorySample'
+import { setVars } from '@/utils/motion'
+import { vReveal } from '@/directives/reveal'
+import StoryOpening from '@/components/story/StoryOpening.vue'
+import StoryDesign from '@/components/story/StoryDesign.vue'
+import StoryCalendar from '@/components/story/StoryCalendar.vue'
+import StoryMessage from '@/components/story/StoryMessage.vue'
 import PriceList from '@/components/PriceList.vue'
 import DesignGallery from '@/components/DesignGallery.vue'
 import PolicyList from '@/components/PolicyList.vue'
 import IconPin from '@/components/icons/IconPin.vue'
-import IconSparkle from '@/components/icons/IconSparkle.vue'
 import IconBow from '@/components/icons/IconBow.vue'
-import IconHeart from '@/components/icons/IconHeart.vue'
 
-const catalog = useCatalogStore()
-onMounted(() => catalog.load())
+// The scroll story only animates when motion is welcome and the screen is tall enough.
+// Otherwise the three scenes are ordinary sections showing their finished pictures.
+const animated = useMediaQuery(STORY_MOTION_QUERY)
 
-const fromPrice = computed(() => {
-  const lowest = catalog.lowestPrice()
-  return lowest === null ? '' : `from ${formatPrice(lowest)}`
-})
+// Real calendar data for scenes 02 and 03.
+const { month, slotsByDate, sampleSlot } = useStorySample()
+
+// The three thin bars under the header fill as each scene plays, like Instagram stories.
+const progressBars = ref(null)
+function showSceneProgress(scene, progress) {
+  setVars(progressBars.value, { [`--scene-${scene}`]: progress })
+}
 </script>
 
 <template>
-  <main id="main" class="container-lg home">
-    <!-- Hero: one column on phones, two columns (hero + how booking works) from lg. -->
-    <div class="row g-4">
-      <section class="col-lg-6" aria-label="Welcome">
-        <div class="hero-frame h-100">
-          <IconSparkle class="sparkle sparkle-1" />
-          <IconSparkle class="sparkle sparkle-2" />
-          <IconHeart class="sparkle sparkle-3" />
-          <h1 class="hero-title"><BrandWordmark size="large" /></h1>
-          <p class="hero-tagline">
-            {{ site.tagline }}<template v-if="fromPrice">, {{ fromPrice }}</template>
-          </p>
-          <p class="hero-area"><IconPin /> {{ site.area }}</p>
-          <RouterLink :to="{ name: 'book-slot' }" class="btn btn-primary btn-lg w-100">
-            Book a slot
-          </RouterLink>
-          <p class="small-print mt-2 mb-0">
-            Pick a time here, then send me a DM on Instagram. No sign-up, no payment online.
-          </p>
-        </div>
-      </section>
+  <main id="main" class="home">
+    <StoryOpening />
 
-      <section class="col-lg-6" aria-labelledby="how-title">
-        <div class="panel h-100">
-          <h2 id="how-title">How booking works</h2>
-          <HowItWorks />
+    <div class="story" :class="{ 'is-animated': animated }">
+      <!-- Decorative: each scene has its own heading, so screen readers don't need this. -->
+      <div v-if="animated" ref="progressBars" class="story-progress" aria-hidden="true">
+        <div class="container-lg story-progress-bars">
+          <span v-for="n in 3" :key="n" :style="{ '--fill': `var(--scene-${n}, 0)` }"></span>
         </div>
-      </section>
+      </div>
+
+      <StoryDesign :animated="animated" @progress="(p) => showSceneProgress(1, p)" />
+      <StoryCalendar
+        :animated="animated"
+        :month="month"
+        :slots-by-date="slotsByDate"
+        :sample-slot="sampleSlot"
+        @progress="(p) => showSceneProgress(2, p)"
+      />
+      <StoryMessage
+        :animated="animated"
+        :sample-slot="sampleSlot"
+        @progress="(p) => showSceneProgress(3, p)"
+      />
     </div>
 
     <!--
-      The rest of the page. On phones the sections stack in the order written here.
-      From md up, the order-md-* classes move the three small cards to the top
+      The rest of the page (version A's content). On phones the sections stack in the order
+      written here. From md up, the order-md-* classes move the three small cards to the top
       (side by side at lg) and the design gallery below them.
     -->
-    <div class="row g-4 mt-0">
-      <section id="prices" class="col-md-6 col-lg-4 order-md-1" aria-labelledby="prices-title">
-        <div class="panel h-100">
-          <h2 id="prices-title">Prices</h2>
-          <PriceList />
-        </div>
-      </section>
+    <div class="container-lg rest">
+      <div class="row g-4">
+        <section
+          id="prices"
+          v-reveal
+          class="col-md-6 col-lg-4 order-md-1"
+          aria-labelledby="prices-title"
+          tabindex="-1"
+        >
+          <div class="panel h-100">
+            <h2 id="prices-title">Prices</h2>
+            <PriceList />
+          </div>
+        </section>
 
-      <section id="gallery" class="col-12 order-md-4" aria-labelledby="designs-title">
-        <h2 id="designs-title" class="mt-2">Designs</h2>
-        <p class="muted measure">
-          Pick one of these when you book, or bring your own. More than one person can choose the
-          same design.
-        </p>
-        <DesignGallery />
-      </section>
+        <section id="gallery" v-reveal class="col-12 order-md-4" aria-labelledby="designs-title">
+          <h2 id="designs-title" class="mt-2">Designs</h2>
+          <p class="muted measure">
+            Pick one of these when you book, or bring your own. More than one person can choose the
+            same design.
+          </p>
+          <DesignGallery />
+        </section>
 
-      <section class="col-md-6 col-lg-4 order-md-2" aria-labelledby="good-to-know-title">
-        <div class="panel h-100">
-          <h2 id="good-to-know-title">Good to know</h2>
-          <PolicyList home-only />
-          <RouterLink :to="{ name: 'policies' }" class="btn btn-outline-primary w-100 mt-2">
-            Read all policies
+        <section
+          v-reveal="1"
+          class="col-md-6 col-lg-4 order-md-2"
+          aria-labelledby="good-to-know-title"
+        >
+          <div class="panel h-100">
+            <h2 id="good-to-know-title">Good to know</h2>
+            <PolicyList home-only />
+            <RouterLink :to="{ name: 'policies' }" class="btn btn-outline-primary w-100 mt-2">
+              Read all policies
+            </RouterLink>
+          </div>
+        </section>
+
+        <section v-reveal="2" class="col-lg-4 order-md-3" aria-labelledby="where-title">
+          <div class="panel h-100">
+            <h2 id="where-title">Where</h2>
+            <p class="where-area"><IconPin /> {{ site.area }}</p>
+            <p class="small-print">I'll share the exact location when I confirm your booking.</p>
+            <h3 class="find-me">Find me on Instagram</h3>
+            <p class="small-print">See my latest sets, and DM me there to book.</p>
+            <a
+              :href="instagramProfileUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn btn-outline-primary w-100"
+            >
+              @{{ site.instagramHandle }}
+            </a>
+          </div>
+        </section>
+      </div>
+
+      <!-- An ordinary button to end the page. -->
+      <div v-reveal class="row mt-4">
+        <div class="col-md-8 col-lg-5 mx-auto text-center">
+          <IconBow class="closing-bow" />
+          <RouterLink :to="{ name: 'book-slot' }" class="btn btn-primary btn-lg w-100 mt-3">
+            Book a slot
           </RouterLink>
         </div>
-      </section>
-
-      <section class="col-lg-4 order-md-3" aria-labelledby="where-title">
-        <div class="panel h-100">
-          <h2 id="where-title">Where</h2>
-          <p class="where-area"><IconPin /> {{ site.area }}</p>
-          <p class="small-print">I'll share the exact location when I confirm your booking.</p>
-          <h3 class="find-me">Find me on Instagram</h3>
-          <p class="small-print">See my latest sets, and DM me there to book.</p>
-          <a
-            :href="instagramProfileUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn btn-outline-primary w-100"
-          >
-            @{{ site.instagramHandle }}
-          </a>
-        </div>
-      </section>
-    </div>
-
-    <!-- An ordinary button to end the page. -->
-    <div class="row mt-4">
-      <div class="col-md-8 col-lg-5 mx-auto text-center">
-        <IconBow class="closing-bow" />
-        <RouterLink :to="{ name: 'book-slot' }" class="btn btn-primary btn-lg w-100 mt-3">
-          Book a slot
-        </RouterLink>
       </div>
     </div>
   </main>
 </template>
 
 <style scoped>
-.home {
-  padding-top: 1rem;
-}
-
-/* Thin double line frame, like the borders on her posters. */
-.hero-frame {
+/*
+  `overflow-x: clip` stops anything that slides in from the side making the page scroll
+  sideways. Unlike `overflow: hidden`, it does not break position: sticky inside it.
+*/
+.story {
   position: relative;
+  overflow-x: clip;
+}
+
+/* ---- Story progress: three thin bars pinned under the header while the scenes play ---- */
+.story-progress {
+  position: sticky;
+  top: var(--tt-header-h);
+  z-index: 2;
+  height: 0; /* takes no space; the bars hang below it */
+}
+
+.story-progress-bars {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
-  padding: 2.25rem 1.25rem 1.5rem;
-  border: 1px solid var(--tt-line);
-  border-radius: 1.5rem;
-  outline: 1px solid var(--tt-line);
-  outline-offset: -7px;
-  background: linear-gradient(180deg, var(--tt-blush), var(--tt-cream));
+  gap: 0.35rem;
+  padding-top: 0.6rem;
 }
 
-.hero-title {
-  margin: 0.5rem 0 0.75rem;
+.story-progress-bars span {
+  position: relative;
+  flex: 1;
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(158, 74, 85, 0.16);
+  overflow: hidden;
 }
 
-.hero-tagline {
-  font-family: var(--tt-font-heading);
-  font-size: 1.2rem;
-  margin-bottom: 0.25rem;
-}
-
-.hero-area {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--tt-deep-rose);
-  margin-bottom: 1.25rem;
-}
-
-.sparkle {
+.story-progress-bars span::after {
+  content: '';
   position: absolute;
-  color: var(--tt-rose);
+  inset: 0;
+  background: var(--tt-deep-rose);
+  transform-origin: left center;
+  transform: scaleX(var(--fill));
 }
 
-.sparkle-1 {
-  top: 1rem;
-  left: 1.2rem;
-  font-size: 1.4rem;
+@media (min-width: 992px) {
+  .story-progress-bars {
+    max-width: 32rem;
+  }
 }
 
-.sparkle-2 {
-  top: 2.4rem;
-  right: 1.6rem;
-  font-size: 0.9rem;
+/* ---- The rest of the page ---- */
+.rest {
+  padding-top: 2.5rem;
 }
 
-.sparkle-3 {
-  top: 1.1rem;
-  right: 2.6rem;
-  font-size: 1rem;
+#prices {
+  scroll-margin-top: calc(var(--tt-header-h) + 1rem);
+}
+
+#prices:focus {
+  outline: none;
 }
 
 .where-area {
