@@ -181,7 +181,8 @@ onBeforeUnmount(() => resizeObserver?.disconnect())
 
 /* ---- Wordmark ---- */
 .opening-title {
-  margin: 0.4rem 0 0.75rem;
+  /* Room above for the heart over the n, clear of the frame line. */
+  margin: 0.34em 0 0.75rem;
   font-family: var(--tt-font-heading);
   font-weight: 600;
   color: var(--tt-ink);
@@ -383,6 +384,13 @@ onBeforeUnmount(() => resizeObserver?.disconnect())
   from {
     opacity: 0;
     transform: translateY(0.75rem);
+  }
+}
+
+/* Tablets and up: the wordmark is bigger, so leave more room above it for the heart. */
+@media (min-width: 576px) {
+  .opening-frame {
+    padding-top: 3.6rem;
   }
 }
 
