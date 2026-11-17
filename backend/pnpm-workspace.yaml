@@ -1,0 +1,5 @@
+# pnpm blocks package install scripts unless they are allowed here.
+# mongodb-memory-server's script downloads the MongoDB program used for the
+# temporary development database and the tests. (sharp needs no script.)
+allowBuilds:
+  mongodb-memory-server: true

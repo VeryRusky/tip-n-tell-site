@@ -9,6 +9,9 @@ dist-ssr/
 !.env.example
 config.env
 
+# Design photos uploaded on a developer's computer (never commit them)
+backend/uploads/
+
 # Test output
 coverage/
 playwright-report/
