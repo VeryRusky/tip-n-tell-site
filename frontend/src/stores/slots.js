@@ -11,6 +11,10 @@ export const useSlotsStore = defineStore('slots', () => {
   const selectedDate = ref('')
   const loading = ref(false)
   const error = ref(null)
+  const monthsLoaded = ref(false)
+
+  // True when there are no open months at all (she has not opened any dates yet).
+  const noOpenMonths = computed(() => monthsLoaded.value && months.value.length === 0)
 
   // { '2026-12-12': [slot, slot, slot], ... } for the month that is showing.
   const slotsByDate = computed(() => {
@@ -30,9 +34,14 @@ export const useSlotsStore = defineStore('slots', () => {
   async function init(startMonth) {
     error.value = null
     try {
-      if (months.value.length === 0) {
+      if (!monthsLoaded.value) {
         loading.value = true
         months.value = await getOpenMonths()
+        monthsLoaded.value = true
+      }
+      if (months.value.length === 0) {
+        loading.value = false
+        return
       }
       const month = months.value.includes(startMonth)
         ? startMonth
@@ -80,6 +89,7 @@ export const useSlotsStore = defineStore('slots', () => {
     selectedDate,
     loading,
     error,
+    noOpenMonths,
     slotsByDate,
     hasPreviousMonth,
     hasNextMonth,

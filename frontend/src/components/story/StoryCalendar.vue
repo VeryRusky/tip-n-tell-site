@@ -169,7 +169,7 @@ defineExpose({ update })
               :key="slot.id"
               class="time"
               :class="{
-                'is-booked': slot.status === 'booked',
+                'is-booked': slot.status !== 'open',
                 'is-ticked': slot.id === sampleSlot?.id,
               }"
               :style="{ '--i': i }"

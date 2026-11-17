@@ -4,8 +4,9 @@ import { formatLongDate, formatTime, formatPrice } from '@/utils/format'
 import ChoiceCard from './ChoiceCard.vue'
 import IconSparkle from './icons/IconSparkle.vue'
 
-// The times for one day, as large options. Booked times stay visible but
-// are struck through, labelled "Booked" and cannot be chosen.
+// The times for one day, as large options. Booked and on-hold times stay visible but
+// are struck through, labelled "Booked" or "On hold", and cannot be chosen.
+// (On hold = she is keeping it for someone while they confirm.)
 defineProps({
   date: { type: String, required: true },
   slots: { type: Array, required: true },
@@ -30,14 +31,15 @@ const catalog = useCatalogStore()
         name="slot"
         :value="slot.id"
         :checked="slot.id === selectedSlotId"
-        :disabled="slot.status === 'booked'"
+        :disabled="slot.status !== 'open'"
         @select="emit('choose', slot)"
       >
         <span class="slot-row">
-          <span class="slot-time" :class="{ booked: slot.status === 'booked' }">
+          <span class="slot-time" :class="{ booked: slot.status !== 'open' }">
             {{ formatTime(slot.time) }}
           </span>
           <span v-if="slot.status === 'booked'" class="slot-tag tag-booked">Booked</span>
+          <span v-else-if="slot.status === 'pending'" class="slot-tag tag-booked">On hold</span>
           <span v-else-if="slot.special" class="slot-tag tag-special">
             <IconSparkle /> Specially opened · +{{ formatPrice(catalog.specialSlotFee) }}
           </span>

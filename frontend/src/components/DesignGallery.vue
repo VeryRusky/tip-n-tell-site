@@ -2,6 +2,7 @@
 import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useCatalogStore } from '@/stores/catalog'
 import { prefersReducedMotion } from '@/utils/motion'
+import { useSlowNotice } from '@/composables/useSlowNotice'
 import DesignArt from './DesignArt.vue'
 
 // Read-only gallery of design references (home page), each in a rounded frame like the
@@ -14,6 +15,7 @@ import DesignArt from './DesignArt.vue'
 //   md and up: a grid (3 per row, 4 from lg) where a design lifts gently on hover.
 const catalog = useCatalogStore()
 onMounted(() => catalog.load())
+const slow = useSlowNotice(() => catalog.loading)
 
 const row = ref(null)
 const current = ref(0) // the design in focus in the carousel
@@ -62,7 +64,9 @@ onBeforeUnmount(() => observer?.disconnect())
 </script>
 
 <template>
-  <p v-if="catalog.loading" role="status">Loading designs…</p>
+  <p v-if="catalog.loading" role="status">
+    {{ slow ? 'Waking up the gallery, one moment…' : 'Loading designs…' }}
+  </p>
   <div v-else class="gallery-wrap">
     <!-- tabindex lets keyboard users scroll the carousel with the arrow keys. -->
     <ul ref="row" class="gallery" tabindex="0" aria-label="Design references">

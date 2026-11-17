@@ -32,6 +32,7 @@ const today = toDateString(new Date())
 // Works out what one day cell should show.
 function describeDay(date) {
   const slots = props.slotsByDate[date] ?? []
+  // Only 'open' times count: booked and on-hold ('pending') times cannot be picked.
   const openCount = slots.filter((slot) => slot.status === 'open').length
   const hasSpecial = slots.some((slot) => slot.status === 'open' && slot.special)
   let state = 'open'

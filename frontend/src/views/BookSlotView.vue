@@ -5,6 +5,7 @@ import { useSlotsStore } from '@/stores/slots'
 import { useBookingStore } from '@/stores/booking'
 import { useCatalogStore } from '@/stores/catalog'
 import { formatShortDate, formatTime } from '@/utils/format'
+import { useSlowNotice } from '@/composables/useSlowNotice'
 import BookingLayout from '@/components/BookingLayout.vue'
 import MonthCalendar from '@/components/MonthCalendar.vue'
 import DaySlots from '@/components/DaySlots.vue'
@@ -19,6 +20,8 @@ const catalog = useCatalogStore()
 
 const dayPanel = ref(null)
 const takenNotice = ref('')
+// After 4 seconds of loading, explain the wait (the live server may be waking up).
+const slow = useSlowNotice(() => slotsStore.loading)
 
 onMounted(() => {
   catalog.load()
@@ -33,9 +36,10 @@ watch(
     if (!booking.slot) return
     const latest = slots.find((slot) => slot.id === booking.slot.id)
     if (!latest) return
-    if (latest.status === 'booked') {
-      // Someone else was confirmed for the saved choice: drop it and say so.
-      takenNotice.value = `Sorry, ${formatShortDate(latest.date)} at ${formatTime(latest.time)} has just been booked. Please choose another time.`
+    if (latest.status !== 'open') {
+      // The saved choice was booked or put on hold for someone else: drop it and say so.
+      const what = latest.status === 'pending' ? 'is now on hold' : 'has just been booked'
+      takenNotice.value = `Sorry, ${formatShortDate(latest.date)} at ${formatTime(latest.time)} ${what}. Please choose another time.`
       booking.clearSlot()
     } else if (!slotsStore.selectedDate) {
       // Re-open the day of the chosen slot, so the customer sees their choice.
@@ -85,7 +89,10 @@ function goNext() {
     <div class="row g-4">
       <div class="col-md-7">
         <div class="panel calendar-panel">
-          <p v-if="!slotsStore.currentMonth" role="status" class="mb-0">Loading open slots…</p>
+          <p v-if="slotsStore.noOpenMonths" class="mb-0">
+            No open times right now. Please check back soon, or message me on Instagram.
+          </p>
+          <p v-else-if="!slotsStore.currentMonth" role="status" class="mb-0">Loading open slots…</p>
           <MonthCalendar
             v-else
             :month="slotsStore.currentMonth"
@@ -98,6 +105,9 @@ function goNext() {
             @previous="slotsStore.previousMonth()"
             @next="slotsStore.nextMonth()"
           />
+          <p v-if="slow && slotsStore.loading" class="small-print mt-2 mb-0" role="status">
+            Waking up the calendar, one moment…
+          </p>
         </div>
       </div>
 
