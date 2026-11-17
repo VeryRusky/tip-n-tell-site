@@ -33,14 +33,18 @@ import { shallowRef, onMounted, onBeforeUnmount } from 'vue'
 //   const stage = ref(null)
 //   const progress = useScrollProgress(section, stage, (p) => { ...set CSS variables... })
 //
-// `onProgress` is optional. Scenes use it to write CSS custom properties straight onto
-// an element, which updates the picture without asking Vue to re-render the template.
+// `onProgress(progress, raw)` is optional. Scenes use it to write CSS custom properties
+// straight onto an element, which updates the picture without asking Vue to re-render.
+// `raw` is the same measurement before it is kept between 0 and 1: below 0 while the
+// section is still arriving (-0.3 = 30% of a screen before it pins), above 1 as it leaves.
+// Scenes use it to start bringing their text in just before pinning.
 export function useScrollProgress(sectionRef, stageRef, onProgress) {
   const progress = shallowRef(0)
 
   let observer = null
   let listening = false
   let frame = 0
+  let lastRaw = null
 
   function measure() {
     frame = 0
@@ -53,12 +57,14 @@ export function useScrollProgress(sectionRef, stageRef, onProgress) {
     const stickyTop = parseFloat(getComputedStyle(stage).top) || 0
     const distance = sectionBox.height - stage.offsetHeight
     // If the section is no taller than its stage there is nothing to scrub: show the end.
-    const value = distance > 0 ? (stickyTop - sectionBox.top) / distance : 1
-    const clamped = Math.min(1, Math.max(0, value))
+    const raw = distance > 0 ? (stickyTop - sectionBox.top) / distance : 1
+    const clamped = Math.min(1, Math.max(0, raw))
 
-    if (clamped !== progress.value) {
+    // Only report real changes (a resize can measure the same position again).
+    if (raw !== lastRaw) {
+      lastRaw = raw
       progress.value = clamped
-      if (onProgress) onProgress(clamped)
+      if (onProgress) onProgress(clamped, raw)
     }
   }
 
@@ -97,7 +103,6 @@ export function useScrollProgress(sectionRef, stageRef, onProgress) {
     observer.observe(sectionRef.value)
     // Set the starting value even before the first scroll.
     measure()
-    if (onProgress) onProgress(progress.value)
   })
 
   onBeforeUnmount(() => {

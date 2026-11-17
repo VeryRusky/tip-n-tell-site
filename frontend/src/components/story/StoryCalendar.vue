@@ -94,9 +94,14 @@ function onProgress(p) {
 </script>
 
 <template>
-  <StoryScene number="02" title-id="story-time-title" :animated="animated" @progress="onProgress">
+  <StoryScene
+    number="02"
+    title="Pick a time"
+    title-id="story-time-title"
+    :animated="animated"
+    @progress="onProgress"
+  >
     <template #text>
-      <h2 id="story-time-title">Pick a time</h2>
       <p>Open days and times, always up to date.</p>
       <p v-if="month && sampleSlot" class="visually-hidden">
         The picture shows my calendar for {{ formatMonth(month) }}, with the open days marked.
@@ -106,87 +111,110 @@ function onProgress(p) {
     </template>
 
     <template #visual>
-      <StoryFit :active="animated">
-        <div
-          ref="visual"
-          class="mini"
-          :class="{ 'is-animated': animated }"
-          :style="{
-            '--rows': weeks.length,
-            '--target-row': target?.row ?? 0,
-            '--target-col': target?.col ?? 0,
-          }"
-          aria-hidden="true"
-        >
-          <p class="mini-month">{{ month ? formatMonth(month) : '' }}</p>
+      <div class="calendar-visual" :class="{ 'is-animated': animated }">
+        <!-- A soft glow behind the card, like the one behind the hand in scene 01. -->
+        <div class="glow" aria-hidden="true"></div>
+        <StoryFit :active="animated">
+          <div
+            ref="visual"
+            class="mini"
+            :class="{ 'is-animated': animated }"
+            :style="{
+              '--rows': weeks.length,
+              '--target-row': target?.row ?? 0,
+              '--target-col': target?.col ?? 0,
+            }"
+            aria-hidden="true"
+          >
+            <p class="mini-month">{{ month ? formatMonth(month) : '' }}</p>
 
-          <div class="mini-heads">
-            <span v-for="(name, i) in weekdays" :key="i" :style="{ '--i': i }">{{ name }}</span>
-          </div>
+            <div class="mini-heads">
+              <span v-for="(name, i) in weekdays" :key="i" :style="{ '--i': i }">{{ name }}</span>
+            </div>
 
-          <div class="mini-grid">
-            <!-- Thin grid lines, drawn with transforms (scaleX / scaleY from 0 to 1). -->
-            <span
-              v-for="h in weeks.length + 1"
-              :key="`h${h}`"
-              class="hline"
-              :style="{ '--i': h - 1, top: `${((h - 1) / weeks.length) * 100}%` }"
-            ></span>
-            <span
-              v-for="v in 8"
-              :key="`v${v}`"
-              class="vline"
-              :style="{ '--i': v - 1, left: `${((v - 1) / 7) * 100}%` }"
-            ></span>
+            <div class="mini-grid">
+              <!-- Thin grid lines, drawn with transforms (scaleX / scaleY from 0 to 1). -->
+              <span
+                v-for="h in weeks.length + 1"
+                :key="`h${h}`"
+                class="hline"
+                :style="{ '--i': h - 1, top: `${((h - 1) / weeks.length) * 100}%` }"
+              ></span>
+              <span
+                v-for="v in 8"
+                :key="`v${v}`"
+                class="vline"
+                :style="{ '--i': v - 1, left: `${((v - 1) / 7) * 100}%` }"
+              ></span>
 
-            <template v-for="(week, row) in weeks" :key="row">
-              <div
-                v-for="(cell, col) in week"
-                :key="`${row}-${col}`"
-                class="cell"
-                :class="cell ? `is-${cell.state}` : 'is-empty'"
-                :style="{ '--row': row, '--wave': row + col }"
+              <template v-for="(week, row) in weeks" :key="row">
+                <div
+                  v-for="(cell, col) in week"
+                  :key="`${row}-${col}`"
+                  class="cell"
+                  :class="cell ? `is-${cell.state}` : 'is-empty'"
+                  :style="{ '--row': row, '--wave': row + col }"
+                >
+                  <template v-if="cell">
+                    <span v-if="cell.state === 'open'" class="pill"></span>
+                    <span class="num">{{ cell.day }}</span>
+                    <span v-if="target && target.row === row && target.col === col" class="chosen">
+                      <span>{{ cell.day }}</span>
+                    </span>
+                  </template>
+                </div>
+              </template>
+
+              <span v-if="target" class="ring"></span>
+            </div>
+
+            <div v-if="times.length" class="mini-times">
+              <span
+                v-for="(slot, i) in times"
+                :key="slot.id"
+                class="time"
+                :class="{
+                  'is-booked': slot.status === 'booked',
+                  'is-ticked': slot.id === sampleSlot?.id,
+                }"
+                :style="{ '--i': i }"
               >
-                <template v-if="cell">
-                  <span v-if="cell.state === 'open'" class="pill"></span>
-                  <span class="num">{{ cell.day }}</span>
-                  <span
-                    v-if="target && target.row === row && target.col === col"
-                    class="chosen"
-                  >
-                    <span>{{ cell.day }}</span>
-                  </span>
-                </template>
-              </div>
-            </template>
-
-            <span v-if="target" class="ring"></span>
+                <span class="time-fill"></span>
+                <span class="time-label">{{ formatTime(slot.time) }}</span>
+                <IconCheck v-if="slot.id === sampleSlot?.id" class="time-tick" />
+              </span>
+            </div>
           </div>
-
-          <div v-if="times.length" class="mini-times">
-            <span
-              v-for="(slot, i) in times"
-              :key="slot.id"
-              class="time"
-              :class="{
-                'is-booked': slot.status === 'booked',
-                'is-ticked': slot.id === sampleSlot?.id,
-              }"
-              :style="{ '--i': i }"
-            >
-              <span class="time-fill"></span>
-              <span class="time-label">{{ formatTime(slot.time) }}</span>
-              <IconCheck v-if="slot.id === sampleSlot?.id" class="time-tick" />
-            </span>
-          </div>
-        </div>
-      </StoryFit>
+        </StoryFit>
+      </div>
     </template>
   </StoryScene>
 </template>
 
 <style scoped>
+.calendar-visual {
+  position: relative;
+}
+
+.calendar-visual.is-animated {
+  height: 100%;
+}
+
+/* Own compositor layers: the card's moving pieces never repaint the big glow behind it. */
+.calendar-visual.is-animated .glow,
+.calendar-visual.is-animated .mini {
+  will-change: transform;
+}
+
+.glow {
+  position: absolute;
+  inset: -8% -15%;
+  background: radial-gradient(closest-side, rgba(251, 219, 223, 0.9), transparent);
+  pointer-events: none;
+}
+
 .mini {
+  position: relative;
   width: 100%;
   max-width: 26rem;
   margin: 0 auto;
@@ -437,19 +465,49 @@ function onProgress(p) {
   stroke-dashoffset: calc(1 - var(--tick));
 }
 
+/* Laptops: about a quarter larger, so the picture holds its half of the screen. */
 @media (min-width: 992px) {
   .mini {
-    max-width: 30rem;
-    padding: 1.4rem 1.4rem 1.5rem;
+    max-width: 37rem;
+    padding: 1.7rem 1.7rem 1.8rem;
+    border-radius: 1.8rem;
+  }
+
+  .mini-month {
+    font-size: 1.55rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .mini-heads span {
+    font-size: 0.95rem;
+    padding: 0.25rem 0;
   }
 
   .mini-grid {
-    grid-auto-rows: 3rem;
+    grid-auto-rows: 3.7rem;
   }
 
   .num,
   .chosen {
-    font-size: 1.05rem;
+    font-size: 1.25rem;
+  }
+
+  .pill {
+    inset: 7px 6px;
+  }
+
+  .chosen {
+    inset: 6px 5px;
+  }
+
+  .mini-times {
+    gap: 0.75rem;
+    margin-top: 1.2rem;
+  }
+
+  .time {
+    font-size: 1.15rem;
+    padding: 0.55rem 1.2rem;
   }
 }
 </style>

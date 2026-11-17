@@ -1,10 +1,27 @@
 <script setup>
+import { useId } from 'vue'
+import { almondNail } from '@/utils/nailArt'
+import NailPaint from './NailPaint.vue'
+
 // The picture for one design. Until she supplies her own photos, this draws a
-// simple placeholder (five nail shapes in the design's colours).
+// placeholder: five almond nails painted with the design's colours and motif, using the
+// same drawing as the hand on the home page and the live preview (NailPaint.vue).
 // When `design.image` is set, the real photo is shown instead.
 defineProps({
   design: { type: Object, required: true },
 })
+
+const uid = useId()
+
+// Five nails in a row, the middle one longest, like a hand's fingertips.
+const NAILS = [
+  { x: 36, cuticle: 152, tip: 78 },
+  { x: 68, cuticle: 143, tip: 58 },
+  { x: 100, cuticle: 139, tip: 48 },
+  { x: 132, cuticle: 143, tip: 58 },
+  { x: 164, cuticle: 152, tip: 78 },
+]
+const HALF_WIDTH = 12.5
 </script>
 
 <template>
@@ -18,10 +35,23 @@ defineProps({
     <div
       v-else
       class="design-placeholder"
-      :style="{ '--base': design.colors[0], '--accent': design.colors[1] }"
+      :style="{ '--base': design.colors[0] }"
       aria-hidden="true"
     >
-      <span v-for="n in 5" :key="n" class="nail"></span>
+      <svg viewBox="0 0 200 200" focusable="false">
+        <g v-for="(nail, i) in NAILS" :key="i" :transform="`translate(${nail.x} 0)`">
+          <NailPaint
+            :design="design"
+            :index="i"
+            :half-width="HALF_WIDTH"
+            :cuticle="nail.cuticle"
+            :tip="nail.tip"
+            :uid="`${uid}-${i}`"
+          />
+          <!-- A faint edge so pale nails still show on pale backgrounds. -->
+          <path class="nail-edge" :d="almondNail(HALF_WIDTH, nail.cuticle, nail.tip)" />
+        </g>
+      </svg>
       <span class="placeholder-label">sample</span>
     </div>
   </div>
@@ -46,36 +76,19 @@ defineProps({
   position: relative;
   width: 100%;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6%;
-  padding: 0 10%;
   background: radial-gradient(circle at 30% 20%, #fff8 0, transparent 55%), var(--base);
 }
 
-/* Each nail: a rounded almond shape in the accent colour. */
-.nail {
-  width: 13%;
-  height: 42%;
-  border-radius: 50% 50% 45% 45% / 65% 65% 35% 35%;
-  background: var(--accent);
-  /* A soft white shine and outline so light colours still show on light backgrounds. */
-  background-image: linear-gradient(100deg, transparent 30%, #ffffff66 40%, transparent 55%);
-  box-shadow:
-    0 0 0 1px #00000014,
-    0 2px 4px #0000001a;
+.design-placeholder svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
-.nail:nth-child(1),
-.nail:nth-child(5) {
-  height: 34%;
-  margin-top: 10%;
-}
-
-.nail:nth-child(3) {
-  height: 46%;
-  margin-top: -6%;
+.nail-edge {
+  fill: none;
+  stroke: rgba(26, 26, 26, 0.12);
+  stroke-width: 1;
 }
 
 .placeholder-label {

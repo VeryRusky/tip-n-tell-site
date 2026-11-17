@@ -46,7 +46,7 @@ function goNext() {
     -->
     <div v-if="!catalog.loading && !catalog.error" class="preview-strip d-lg-none">
       <div class="preview-hand">
-        <HandArt :design="booking.design" :own-hint="booking.isOwnDesign" />
+        <HandArt view="tips" :design="booking.design" :own-hint="booking.isOwnDesign" />
       </div>
       <p class="preview-text" aria-hidden="true">
         <span class="preview-label">Preview</span>
@@ -96,7 +96,7 @@ function goNext() {
     <template #card>
       <div class="preview-card">
         <div class="preview-card-hand">
-          <HandArt :design="booking.design" :own-hint="booking.isOwnDesign" />
+          <HandArt view="tips" :design="booking.design" :own-hint="booking.isOwnDesign" />
         </div>
         <p class="preview-text" aria-hidden="true">
           <span class="preview-label">Preview</span>
@@ -131,17 +131,19 @@ function goNext() {
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 1rem;
-  padding: 0.35rem 1rem 0.35rem 0.5rem;
+  padding: 0.4rem 0.75rem 0.25rem 0.4rem;
   box-shadow: 0 8px 18px -14px rgba(158, 74, 85, 0.6);
   background: var(--tt-blush);
   border: 1px solid var(--tt-line);
   border-radius: var(--tt-radius);
 }
 
+/* Fingertip close-up, sized so each nail is about 30px wide on a phone. */
 .preview-hand {
   flex: 0 0 auto;
-  width: 4.5rem;
-  height: 5.6rem;
+  width: 13rem;
+  max-width: 62%;
+  aspect-ratio: 190 / 92;
 }
 
 .preview-text {
@@ -161,7 +163,7 @@ function goNext() {
 .preview-name {
   display: block;
   font-family: var(--tt-font-heading);
-  font-size: 1.3rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--tt-ink);
   line-height: 1.2;
@@ -176,8 +178,8 @@ function goNext() {
 
 .preview-card-hand {
   flex: 0 0 auto;
-  width: 5.25rem;
-  height: 6.5rem;
+  width: 11.5rem;
+  aspect-ratio: 190 / 92;
 }
 
 .design-name {

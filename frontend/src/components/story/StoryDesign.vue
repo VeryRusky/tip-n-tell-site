@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useMediaQuery } from '@/composables/useMediaQuery'
 import { useCatalogStore } from '@/stores/catalog'
 import { phase, easeOut, setVars } from '@/utils/motion'
 import HandArt from '@/components/HandArt.vue'
@@ -19,8 +20,9 @@ const emit = defineEmits(['progress'])
 const catalog = useCatalogStore()
 onMounted(() => catalog.load())
 
-// Four designs from her gallery, ending on #3 (the one the "Send it" scene books).
-const SHOWCASE_IDS = [8, 4, 1, 3]
+// Four designs from her gallery with clearly different motifs, ending on #3
+// (the one the "Send it" scene books).
+const SHOWCASE_IDS = [2, 4, 7, 3]
 const designs = computed(() => {
   const picked = SHOWCASE_IDS.map((id) => catalog.designs.find((d) => d.id === id)).filter(Boolean)
   return picked.length === SHOWCASE_IDS.length ? picked : catalog.designs.slice(0, 4)
@@ -35,6 +37,9 @@ const current = ref(CHANGES.length)
 
 const visual = ref(null)
 
+// Phones show a closer crop of the hand (the four fingers), so the nails are bigger.
+const isLaptop = useMediaQuery('(min-width: 992px)')
+
 // Runs on every scrolled frame. Small things that change all the time are written as
 // CSS variables (no Vue re-render); `progress` only matters when a design changes.
 function onProgress(p) {
@@ -42,37 +47,39 @@ function onProgress(p) {
   const index = CHANGES.filter((start) => p >= start).length
   current.value = index // Vue only re-renders when this number actually changes
 
-  // How far the top colour has wiped over the one underneath.
-  const wipe = index === 0 ? phase(p, 0.15, 0.4) : phase(p, CHANGES[index - 1], CHANGES[index - 1] + CHANGE_LENGTH)
+  // How far each design has wiped over the ones before it: the first is painted from 0.15
+  // to 0.4 (nail after nail), each later one is a quick wipe starting at its CHANGES time.
+  // The same numbers fade in each design's background tint.
+  const wipes = [phase(p, 0.15, 0.4), ...CHANGES.map((at) => phase(p, at, at + CHANGE_LENGTH))]
   const draw = easeOut(phase(p, 0.02, 0.15))
 
   setVars(visual.value, {
     '--draw': draw,
-    '--wipe': wipe,
-    // Wide stagger for the first paint (one nail after another), small for the quick changes.
-    '--stagger': index === 0 ? 0.3 : 0.07,
+    '--wipe-0': wipes[0],
+    '--wipe-1': wipes[1],
+    '--wipe-2': wipes[2],
+    '--wipe-3': wipes[3],
     // The hand rises in as it draws, tilts gently while the designs change, then settles.
     '--rise': 1 - draw,
     '--tilt': Math.sin(Math.PI * phase(p, 0.4, 0.9)),
     '--caption': phase(p, 0.14, 0.22),
     '--settle': easeOut(phase(p, 0.9, 0.98)),
-    // Background tint of each design, so later ones cover earlier ones.
-    '--tint-0': phase(p, 0.15, 0.4),
-    '--tint-1': phase(p, CHANGES[0], CHANGES[0] + CHANGE_LENGTH),
-    '--tint-2': phase(p, CHANGES[1], CHANGES[1] + CHANGE_LENGTH),
-    '--tint-3': phase(p, CHANGES[2], CHANGES[2] + CHANGE_LENGTH),
   })
 }
 
-// What HandArt shows: the current design over the previous one (bare nails before the first).
+// The design on top at the moment (for the description read by screen readers).
 const topDesign = computed(() => designs.value[current.value] ?? null)
-const underDesign = computed(() => (current.value === 0 ? null : designs.value[current.value - 1]))
 </script>
 
 <template>
-  <StoryScene number="01" title-id="story-design-title" :animated="animated" @progress="onProgress">
+  <StoryScene
+    number="01"
+    title="Pick a design"
+    title-id="story-design-title"
+    :animated="animated"
+    @progress="onProgress"
+  >
     <template #text>
-      <h2 id="story-design-title">Pick a design</h2>
       <p>Pick a design, or bring your own.</p>
       <p class="visually-hidden">
         The picture shows a hand whose nails are painted in some of my designs, ending with
@@ -81,31 +88,49 @@ const underDesign = computed(() => (current.value === 0 ? null : designs.value[c
     </template>
 
     <template #visual>
-      <div ref="visual" class="design-visual" :class="{ 'is-animated': animated }" aria-hidden="true">
+      <div
+        ref="visual"
+        class="design-visual"
+        :class="{ 'is-animated': animated }"
+        aria-hidden="true"
+      >
         <!-- Soft background tints, one per design, faded in turn (opacity only). -->
         <div
           v-for="(design, i) in designs"
           :key="design.id"
           class="tint"
-          :style="{ '--tint-color': design.colors[0], '--tint': `var(--tint-${i})` }"
+          :style="{ '--tint-color': design.colors[0], '--tint': `var(--wipe-${i})` }"
         ></div>
 
         <div class="hand-wrap">
-          <HandArt :design="topDesign" :under="underDesign" scrub />
+          <HandArt :layers="designs" :close="!isLaptop" scrub />
           <svg class="settle-sparkle sparkle-a" viewBox="0 0 24 24">
-            <path d="M12 2c.6 5.2 2.8 7.4 8 8-5.2.6-7.4 2.8-8 8-.6-5.2-2.8-7.4-8-8 5.2-.6 7.4-2.8 8-8z" />
+            <path
+              d="M12 2c.6 5.2 2.8 7.4 8 8-5.2.6-7.4 2.8-8 8-.6-5.2-2.8-7.4-8-8 5.2-.6 7.4-2.8 8-8z"
+            />
           </svg>
           <svg class="settle-sparkle sparkle-b" viewBox="0 0 24 24">
-            <path d="M12 2c.6 5.2 2.8 7.4 8 8-5.2.6-7.4 2.8-8 8-.6-5.2-2.8-7.4-8-8 5.2-.6 7.4-2.8 8-8z" />
+            <path
+              d="M12 2c.6 5.2 2.8 7.4 8 8-5.2.6-7.4 2.8-8 8-.6-5.2-2.8-7.4-8-8 5.2-.6 7.4-2.8 8-8z"
+            />
           </svg>
         </div>
 
-        <p v-if="topDesign" class="caption">
-          <Transition name="caption-swap" mode="out-in">
-            <span :key="topDesign.id">
-              <strong>#{{ topDesign.id }}</strong> {{ topDesign.name }}
-            </span>
-          </Transition>
+        <!--
+          The caption rolls like a ticker: every name is stacked in one place, the current one
+          shows, the previous one has rolled up out of view and the next waits below. The pill
+          clips them, so the text is always solid and never half faded. All names share one
+          grid cell, so the pill is as wide as the longest and never changes size.
+        -->
+        <p v-if="designs.length" class="caption">
+          <span
+            v-for="(design, i) in designs"
+            :key="design.id"
+            class="caption-name"
+            :class="{ 'is-current': i === current, 'is-past': i < current }"
+          >
+            <strong>#{{ design.id }}</strong> {{ design.name }}
+          </span>
         </p>
       </div>
     </template>
@@ -123,13 +148,14 @@ const underDesign = computed(() => (current.value === 0 ? null : designs.value[c
   gap: 0.75rem;
 }
 
-/* A soft round glow behind the hand in the design's base colour. */
+/* A soft round glow behind the hand in the design's base colour (mixed with cream,
+   so even the dark designs only tint it gently). */
 .tint {
   position: absolute;
   inset: -10% -20%;
   background: radial-gradient(
     closest-side,
-    color-mix(in srgb, var(--tint-color) 70%, transparent),
+    color-mix(in srgb, var(--tint-color) 45%, var(--tt-cream)),
     transparent
   );
   opacity: 0;
@@ -159,13 +185,30 @@ const underDesign = computed(() => (current.value === 0 ? null : designs.value[c
 .caption {
   position: relative;
   flex: 0 0 auto;
+  display: grid;
   margin: 0;
-  padding: 0.35rem 1rem;
+  padding: 0.4rem 1.1rem;
   border-radius: 999px;
   background: var(--tt-white);
   border: 1px solid var(--tt-line);
-  font-size: 1rem;
+  font-size: 1.05rem;
   white-space: nowrap;
+  overflow: hidden;
+}
+
+.caption-name {
+  grid-area: 1 / 1;
+  text-align: center;
+  transform: translateY(130%);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.caption-name.is-past {
+  transform: translateY(-130%);
+}
+
+.caption-name.is-current {
+  transform: none;
 }
 
 .caption strong {
@@ -189,33 +232,20 @@ const underDesign = computed(() => (current.value === 0 ? null : designs.value[c
   width: 0.9rem;
 }
 
-.caption-swap-enter-active,
-.caption-swap-leave-active {
-  transition:
-    opacity 0.2s,
-    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.caption-swap-enter-from {
-  opacity: 0;
-  transform: translateY(6px);
-}
-
-.caption-swap-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
-
 /* ---- Pinned and scrubbed ---- */
 .design-visual.is-animated {
   height: 100%;
 }
 
+/* will-change gives the moving parts their own compositor layers, so a change to one
+   does not repaint the large soft glows around it. */
 .is-animated .tint {
   opacity: var(--tint);
+  will-change: opacity;
 }
 
 .is-animated .hand-wrap {
+  will-change: transform;
   transform: translateY(calc(var(--rise, 0) * 1.5rem)) rotate(calc(var(--tilt, 0) * -3deg));
   transform-origin: 50% 90%;
 }

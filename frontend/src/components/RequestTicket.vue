@@ -88,7 +88,10 @@ const titleId = useId()
         <dt>Add-on</dt>
         <dd>
           <Transition name="fill-in" mode="out-in">
-            <span :key="booking.addOnIds.join() || 'none'" :class="{ empty: !booking.addOns.length }">
+            <span
+              :key="booking.addOnIds.join() || 'none'"
+              :class="{ empty: !booking.addOns.length }"
+            >
               <template v-if="booking.addOns.length">
                 <span v-for="addOn in booking.addOns" :key="addOn.id" class="d-block">
                   {{ addOn.name }}

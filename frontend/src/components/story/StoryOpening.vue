@@ -182,8 +182,8 @@ function skipStory(event) {
 
 <style scoped>
 .opening {
-  /* One screen under the header. */
-  min-height: calc(100svh - var(--tt-header-h));
+  /* One screen under the header (and the demo notice, while there is one). */
+  min-height: calc(100svh - var(--tt-header-h) - var(--tt-banner-h, 0px));
   display: flex;
 }
 

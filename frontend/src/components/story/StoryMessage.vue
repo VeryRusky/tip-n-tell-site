@@ -80,9 +80,14 @@ watch(message, () => showTyped(lastProgress), { flush: 'post' })
 </script>
 
 <template>
-  <StoryScene number="03" title-id="story-send-title" :animated="animated" @progress="onProgress">
+  <StoryScene
+    number="03"
+    title="Send it"
+    title-id="story-send-title"
+    :animated="animated"
+    @progress="onProgress"
+  >
     <template #text>
-      <h2 id="story-send-title">Send it</h2>
       <p>Send your request on Instagram.</p>
       <p ref="replyLine" class="reply-line" :class="{ 'is-animated': animated }">
         Your slot is booked <span class="underline">once I reply.</span>
@@ -95,6 +100,8 @@ watch(message, () => showTyped(lastProgress), { flush: 'post' })
 
     <template #visual>
       <div ref="visual" class="send-visual" :class="{ 'is-animated': animated }">
+        <!-- A soft glow behind the chat, like the one behind the hand in scene 01. -->
+        <div class="glow" aria-hidden="true"></div>
         <StoryFit :active="animated" class="chat-fit">
           <div class="chat" aria-hidden="true">
             <div class="chat-top">
@@ -123,11 +130,7 @@ watch(message, () => showTyped(lastProgress), { flush: 'post' })
         <!-- The end of the story: a bow that ties itself above the real button. -->
         <div class="finale">
           <svg class="bow" viewBox="0 0 120 72" aria-hidden="true" focusable="false">
-            <path
-              class="bow-loop"
-              pathLength="1"
-              d="M60 30 C48 14 22 4 14 14 C6 24 24 40 60 30"
-            />
+            <path class="bow-loop" pathLength="1" d="M60 30 C48 14 22 4 14 14 C6 24 24 40 60 30" />
             <path
               class="bow-loop"
               pathLength="1"
@@ -147,7 +150,20 @@ watch(message, () => showTyped(lastProgress), { flush: 'post' })
 </template>
 
 <style scoped>
+.glow {
+  position: absolute;
+  inset: -6% -15%;
+  background: radial-gradient(closest-side, rgba(251, 219, 223, 0.9), transparent);
+  pointer-events: none;
+}
+
+.chat-fit,
+.finale {
+  position: relative; /* above the glow */
+}
+
 .send-visual {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -381,6 +397,13 @@ watch(message, () => showTyped(lastProgress), { flush: 'post' })
   stroke-dashoffset: calc(1 - var(--tails));
 }
 
+/* Own compositor layers: typing and pops never repaint the big glow behind the chat. */
+.is-animated .glow,
+.is-animated .chat,
+.is-animated .finale {
+  will-change: transform;
+}
+
 /* Pinned on a phone: the chat takes the free space, the finale sits under it. */
 .send-visual.is-animated {
   height: 100%;
@@ -404,14 +427,47 @@ watch(message, () => showTyped(lastProgress), { flush: 'post' })
   }
 }
 
+/* Laptops: about a quarter larger, so the picture holds its half of the screen. */
 @media (min-width: 992px) {
   .chat,
   .finale {
-    max-width: 27rem;
+    max-width: 33rem;
+  }
+
+  .chat {
+    border-radius: 1.9rem;
+  }
+
+  .chat-top {
+    padding: 0.9rem 1.25rem;
+  }
+
+  .avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1.15rem;
+  }
+
+  .handle {
+    font-size: 1.1rem;
+  }
+
+  .chat-body {
+    padding: 1.25rem 1.15rem 1.4rem;
+    gap: 0.45rem;
   }
 
   .bubble {
-    font-size: 1rem;
+    font-size: 1.15rem;
+    padding: 0.75rem 1.05rem;
+  }
+
+  .sent-label {
+    font-size: 0.85rem;
+  }
+
+  .bow {
+    width: 6.5rem;
   }
 }
 </style>
