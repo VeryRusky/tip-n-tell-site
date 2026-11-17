@@ -56,3 +56,21 @@ Layouts use Bootstrap's grid and breakpoint classes in the templates (`container
 
 The only custom media queries are in `src/components/BookingLayout.vue`, because the grid can place
 columns but cannot make one stick to the bottom (phones) or the top (laptops) of the screen.
+
+## Demo deploy (GitHub Pages)
+
+The demo is live at https://veryrusky.github.io/tip-n-tell-site/, served from the `gh-pages` branch.
+While `demoMode: true` in `src/config/site.js`, every page shows a "Demo site" notice; set it to
+`false` before the real launch.
+
+To redeploy after changes (Git Bash):
+
+```bash
+MSYS_NO_PATHCONV=1 pnpm build --base=/tip-n-tell-site/
+cp dist/index.html dist/404.html   # lets links like /book/time work on refresh
+touch dist/.nojekyll
+```
+
+Then push the contents of `dist/` to the `gh-pages` branch (for example from a copy of `dist/`:
+`git init -b gh-pages`, `git add -A`, `git commit`, `git push --force <repo-url> gh-pages`).
+`MSYS_NO_PATHCONV=1` stops Git Bash on Windows from turning `/tip-n-tell-site/` into a Windows path.

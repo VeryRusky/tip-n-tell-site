@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import SiteHeader from '@/components/SiteHeader.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
+import DemoBanner from '@/components/DemoBanner.vue'
 
 // Which page transition to use (the styles are in main.css):
 //   between booking steps: 'step-forward' slides the new step in from the right,
@@ -22,6 +23,7 @@ watch(
 <template>
   <a href="#main" class="skip-link">Skip to content</a>
   <SiteHeader />
+  <DemoBanner />
   <!--
     The old page disappears at once and the new one eases in, so a page is never shown twice.
     `duration` tells Vue how long to keep the transition classes: the moving part is inside

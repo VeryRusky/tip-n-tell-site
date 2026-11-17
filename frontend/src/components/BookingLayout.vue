@@ -153,7 +153,7 @@ defineProps({
   }
 
   .back-button {
-    order: 1;
+    order: 2; /* last; order 1 is free for a line that should sit under the main button */
   }
 }
 

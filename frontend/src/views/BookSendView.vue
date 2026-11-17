@@ -162,8 +162,8 @@ async function startOver() {
       </div>
       <!--
         The same news as a line next to the button (the toast is what screen readers hear).
-        Phones: above the button, so the button never moves. Laptops: at the end of the card,
-        below both buttons, so appearing pushes nothing down.
+        Phones: above the button, so the button never moves. Laptops: just under the main
+        button (Back moves down instead), so the button itself never moves.
       -->
       <p class="copy-status">
         <template v-if="copyState === 'copied'">
@@ -243,6 +243,16 @@ async function startOver() {
   color: var(--tt-deep-rose);
 }
 
+/*
+  Laptops: show the "Message copied" line under the main button instead of above it,
+  so pressing the button never pushes the button itself down.
+*/
+@media (min-width: 992px) {
+  .copy-status {
+    order: 1;
+  }
+}
+
 .send-button {
   position: relative; /* the sparkle burst is placed from its centre */
   white-space: nowrap;
@@ -253,11 +263,6 @@ async function startOver() {
   --ticket-cutout: var(--tt-cream);
 }
 
-@media (min-width: 992px) {
-  .copy-status {
-    order: 2;
-  }
-}
 
 /* Small phones: slightly smaller text so the label fits on one line next to Back. */
 @media (max-width: 575.98px) {
