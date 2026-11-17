@@ -16,6 +16,7 @@ import StoryMessage from './StoryMessage.vue'
 // Controls, as on Instagram stories (no button row):
 // - tap the left third of the picture for the previous scene, the rest for the next
 //   (real buttons, so they also work with a keyboard and screen readers)
+// - swipe left or right on the picture to go on or back
 // - press and hold the picture to pause; let go to carry on
 // - a small pause / play / replay button at the right of the header row
 // - the arrow keys, while anything in the card has focus
@@ -155,21 +156,51 @@ function togglePlay() {
   }
 }
 
-// ---- Press and hold the picture to pause, as on Instagram ----
-// A press that lasts longer than HOLD_MS pauses the story until the finger (or mouse
-// button) lifts. The click that follows a hold is ignored, so a hold never also moves to
-// the next or previous scene. A quick tap is an ordinary click and does move.
+// ---- Touch and mouse on the picture: tap, press and hold, swipe ----
+// The picture listens for a press (pointerdown) anywhere on it, then follows that one
+// pointer until it lifts:
+// - Swipe: moved more than SWIPE_PX sideways (and more sideways than up or down) → the
+//   next scene for a swipe to the left, the previous one for a swipe to the right.
+// - Press and hold: stayed put for HOLD_MS → paused until it lifts, then carries on.
+// - Anything else is a tap, and the tap zone's own click handles it (left third back,
+//   the rest on).
+// After a swipe or a hold, the click the browser may send is ignored, so they never also
+// count as a tap. Up-and-down movement is left to the browser, so the page still scrolls
+// (CSS touch-action: pan-y).
 const HOLD_MS = 250
+const MOVE_PX = 10 // moving further than this is a drag, not a press or a tap
+const SWIPE_PX = 40
 let holdTimer = 0
 let holding = false
 let pausedByHold = false
 let ignoreNextClick = false
+let press = null // { id, x, y, moved } for the pointer currently down
+
+function ignoreClickSoon() {
+  // Some browsers send no click after a long press or a drag; don't let the flag
+  // swallow a later tap.
+  ignoreNextClick = true
+  setTimeout(() => (ignoreNextClick = false), 400)
+}
+
+function resumeAfterHold() {
+  if (!pausedByHold) return
+  pausedByHold = false
+  if (status.value === 'playing') timeline.play()
+}
+
+function stopFollowing() {
+  window.removeEventListener('pointermove', pressMove)
+  window.removeEventListener('pointerup', pressEnd)
+  window.removeEventListener('pointercancel', pressCancel)
+}
 
 function pressStart(event) {
-  if (event.button > 0) return // only the main mouse button, a finger or a pen
-  clearTimeout(holdTimer)
+  if (event.button > 0 || press) return // only the main button / one finger at a time
+  press = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false }
   holding = false
   ignoreNextClick = false
+  clearTimeout(holdTimer)
   holdTimer = setTimeout(() => {
     holding = true
     if (status.value === 'playing') {
@@ -177,19 +208,51 @@ function pressStart(event) {
       pausedByHold = true
     }
   }, HOLD_MS)
+  // Follow the pointer on the window, so we still hear it lift outside the card.
+  window.addEventListener('pointermove', pressMove)
+  window.addEventListener('pointerup', pressEnd)
+  window.addEventListener('pointercancel', pressCancel)
 }
 
-function pressEnd() {
-  clearTimeout(holdTimer)
-  if (!holding) return
-  holding = false
-  // Some browsers send no click after a long press; don't let the flag swallow a later tap.
-  ignoreNextClick = true
-  setTimeout(() => (ignoreNextClick = false), 400)
-  if (pausedByHold) {
-    pausedByHold = false
-    if (status.value === 'playing') timeline.play()
+function pressMove(event) {
+  if (!press || event.pointerId !== press.id || press.moved) return
+  if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > MOVE_PX) {
+    press.moved = true // a drag: no hold, no tap
+    clearTimeout(holdTimer)
   }
+}
+
+function pressEnd(event) {
+  if (!press || event.pointerId !== press.id) return
+  const dx = event.clientX - press.x
+  const dy = event.clientY - press.y
+  const moved = press.moved
+  press = null
+  stopFollowing()
+  clearTimeout(holdTimer)
+
+  if (moved && Math.abs(dx) > SWIPE_PX && Math.abs(dx) > Math.abs(dy) * 1.2) {
+    ignoreClickSoon()
+    holding = false
+    resumeAfterHold()
+    if (dx < 0) next()
+    else previous()
+    return
+  }
+  if (moved || holding) ignoreClickSoon()
+  holding = false
+  resumeAfterHold()
+}
+
+// The browser took the gesture over (for example to scroll the page): just tidy up.
+function pressCancel(event) {
+  if (!press || event.pointerId !== press.id) return
+  press = null
+  stopFollowing()
+  clearTimeout(holdTimer)
+  holding = false
+  ignoreClickSoon()
+  resumeAfterHold()
 }
 
 function tap(direction) {
@@ -270,6 +333,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearTimeout(startTimer)
+  clearTimeout(holdTimer)
+  stopFollowing()
   observer?.disconnect()
   document.removeEventListener('visibilitychange', onVisibilityChange)
 })
@@ -320,7 +385,12 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <div class="story-scenes" :class="`going-${direction}`">
+      <div
+        class="story-scenes"
+        :class="`going-${direction}`"
+        @pointerdown="pressStart"
+        @contextmenu.prevent
+      >
         <!-- All three scenes are on the page; only the current one shows (and can be read). -->
         <StoryDesign
           :ref="(el) => (scenes[0] = el)"
@@ -361,11 +431,6 @@ onBeforeUnmount(() => {
           aria-label="Previous scene"
           :disabled="!canGoBack"
           :aria-hidden="!canGoBack ? 'true' : null"
-          @pointerdown="pressStart"
-          @pointerup="pressEnd"
-          @pointercancel="pressEnd"
-          @pointerleave="pressEnd"
-          @contextmenu.prevent
           @click="tap('previous')"
         >
           <span class="tap-hint" aria-hidden="true">‹</span>
@@ -376,11 +441,6 @@ onBeforeUnmount(() => {
           aria-label="Next scene"
           :disabled="!canGoOn"
           :aria-hidden="!canGoOn ? 'true' : null"
-          @pointerdown="pressStart"
-          @pointerup="pressEnd"
-          @pointercancel="pressEnd"
-          @pointerleave="pressEnd"
-          @contextmenu.prevent
           @click="tap('next')"
         >
           <span class="tap-hint" aria-hidden="true">›</span>
@@ -510,6 +570,10 @@ onBeforeUnmount(() => {
 /* ---- Scenes: stacked in one place, the current one fades in ---- */
 .story-scenes {
   position: relative;
+  /* Up-and-down drags scroll the page and pinch zooms; sideways drags are our swipes. */
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  -webkit-touch-callout: none;
   flex: 1 1 auto;
   min-height: 0;
 }
@@ -602,7 +666,7 @@ onBeforeUnmount(() => {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   user-select: none;
-  touch-action: manipulation;
+  touch-action: pan-y pinch-zoom;
 }
 
 .tap-back {
@@ -617,8 +681,10 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
 }
 
+/* A switched-off zone lets presses through to the picture, so a swipe can start there. */
 .tap-zone:disabled {
   cursor: default;
+  pointer-events: none;
 }
 
 /* Keyboard focus: a ring just inside the zone, so it is clear what Enter will do. */

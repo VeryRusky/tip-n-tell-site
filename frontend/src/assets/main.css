@@ -32,6 +32,23 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
+/*
+  Keep the footer at the bottom of the window on short pages (for example the Policies page
+  or a booking step when the browser is zoomed out, or on a very tall screen). The app is a
+  column at least as tall as the window, and the page's <main> takes up any spare height,
+  so there is never an empty band under the footer.
+*/
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100svh;
+}
+
+#app > main {
+  flex: 1 0 auto;
+}
+
 h1,
 h2,
 h3 {

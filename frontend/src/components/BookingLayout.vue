@@ -67,10 +67,22 @@ defineProps({
 </template>
 
 <style scoped>
+/*
+  The page fills any spare height in the window (see #app in main.css). The row then
+  stretches to fill the page, and its two parts spread apart, so on phones and tablets the
+  bar sits at the bottom with any spare space above it, never floating mid-screen.
+*/
 .booking-page {
+  display: flex;
+  flex-direction: column;
   padding-top: 1rem;
   /* A step sliding in never makes the page scroll sideways (clip keeps sticky working). */
   overflow-x: clip;
+}
+
+.booking-page > .row {
+  flex: 1 0 auto;
+  align-content: space-between;
 }
 
 .actions-row {
