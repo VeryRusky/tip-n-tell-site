@@ -25,6 +25,5 @@ design-reference/
 Thumbs.db
 *.log
 
-# Private working notes about the business. Keep them on this computer only.
-docs/questions-for-her.md
-docs/draft-notes.md
+# Working notes and screenshots stay on this computer only.
+docs/
