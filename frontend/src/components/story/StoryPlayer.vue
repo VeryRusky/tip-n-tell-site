@@ -43,6 +43,7 @@ const animated = useMediaQuery('(prefers-reduced-motion: no-preference)')
 
 const scenes = ref([]) // the three scene components (filled by the template refs)
 const index = ref(0) // which scene is showing
+const direction = ref('next') // 'next' or 'back': the way the last change went
 const status = ref('waiting') // 'waiting' (not started), 'playing', 'paused', 'ended'
 const card = ref(null)
 const bars = ref(null)
@@ -81,6 +82,8 @@ const timeline = useTimeline({
 
 // Show scene i from its start, and play it (or, with Reduce Motion, show it finished).
 function goTo(i) {
+  // Which way the story is moving, so the new scene slides in from the matching side.
+  if (i !== index.value) direction.value = i > index.value ? 'next' : 'back'
   index.value = i
   if (!animated.value) {
     draw(1)
@@ -296,7 +299,7 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <div class="story-scenes">
+      <div class="story-scenes" :class="`going-${direction}`">
         <!-- All three scenes are on the page; only the current one shows (and can be read). -->
         <StoryDesign
           :ref="(el) => (scenes[0] = el)"
@@ -487,6 +490,15 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
+/*
+  Changing scene, like a story: the old scene goes first, then the new one comes in, so two
+  headings are never readable at once.
+    0 – 140ms    the outgoing scene fades out where it is (a transition)
+    140 – 440ms  the incoming scene fades in and slides the last 1.25rem into place: from the
+                 right when going on, from the left when going back (an animation, which
+                 starts afresh each time a scene becomes the current one)
+  With Reduce Motion, main.css turns transitions and animations off: an instant swap.
+*/
 .story-scenes > :deep(.card-scene) {
   position: absolute;
   inset: 0;
@@ -495,14 +507,35 @@ onBeforeUnmount(() => {
   opacity: 0;
   visibility: hidden;
   transition:
-    opacity 0.3s ease-out,
-    visibility 0s linear 0.3s;
+    opacity 0.14s ease-in,
+    visibility 0s linear 0.14s;
 }
 
 .story-scenes > :deep(.card-scene.is-current) {
   opacity: 1;
   visibility: visible;
-  transition: opacity 0.3s ease-out;
+  transition: none;
+  /* "backwards": hidden during the 140ms wait, then released when it ends, so the scene's own
+     opacity applies again and the fade-out transition can run when it leaves. */
+  animation: scene-in-next 0.3s var(--tt-ease-out) 0.14s backwards;
+}
+
+.story-scenes.going-back > :deep(.card-scene.is-current) {
+  animation-name: scene-in-back;
+}
+
+@keyframes scene-in-next {
+  from {
+    opacity: 0;
+    transform: translateX(1.25rem);
+  }
+}
+
+@keyframes scene-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-1.25rem);
+  }
 }
 
 .story-scenes :deep(.card-text) {
