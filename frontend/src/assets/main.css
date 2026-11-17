@@ -32,6 +32,23 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
+/*
+  The page always fills the window, with the footer at the very bottom. Without this, a
+  short page (Policies, a booking step) in a tall window, for example when zoomed out,
+  ends partway down the screen and leaves an empty band under the footer.
+  The header, banner and footer keep their own height; the page's <main> takes the rest.
+*/
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100svh; /* the visible height on phones, where the address bar comes and goes */
+}
+
+#app > main {
+  flex: 1 0 auto;
+}
+
 h1,
 h2,
 h3 {

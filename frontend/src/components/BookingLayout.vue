@@ -59,8 +59,21 @@ defineProps({
 </template>
 
 <style scoped>
+/*
+  The page fills the space down to the footer (see main.css). Stretch the row too, with
+  the content at the top and the phone/tablet bottom bar at the bottom, so on a tall
+  window the bar sits at the bottom of the screen instead of floating partway up.
+  (On laptops the content and card share one line, so nothing moves.)
+*/
 .booking-page {
+  display: flex;
+  flex-direction: column;
   padding-top: 1rem;
+}
+
+.booking-page > .row {
+  flex: 1 0 auto;
+  align-content: space-between;
 }
 
 .actions-row {
