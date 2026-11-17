@@ -57,7 +57,10 @@ describe('slots', () => {
     ['a query operator instead of a date', { dates: [{ $gt: '' }], times: ['10:00'] }],
     ['dates that are not a list', { dates: '2099-01-01', times: ['10:00'] }],
     ['an empty list of times', { dates: ['2099-01-01'], times: [] }],
-    ['special that is not true or false', { dates: ['2099-01-01'], times: ['10:00'], special: 'yes' }],
+    [
+      'special that is not true or false',
+      { dates: ['2099-01-01'], times: ['10:00'], special: 'yes' },
+    ],
   ])('rejects %s with 400', async (label, body) => {
     const response = await openSlots(body)
     expect(response.status).toBe(400)
@@ -90,7 +93,10 @@ describe('slots', () => {
     ['nothing to change', {}],
   ])('rejects %s when changing a slot', async (label, body) => {
     const slot = await Slot.create({ date: dateFromToday(2), time: '14:00' })
-    const response = await agent.patch(`/api/admin/slots/${slot._id}`).set('Origin', ORIGIN).send(body)
+    const response = await agent
+      .patch(`/api/admin/slots/${slot._id}`)
+      .set('Origin', ORIGIN)
+      .send(body)
     expect(response.status).toBe(400)
   })
 

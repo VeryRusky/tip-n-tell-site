@@ -2,7 +2,14 @@ import request from 'supertest'
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { loadConfig } from '../config.js'
 import { verifyGoogleToken } from '../services/googleVerifier.js'
-import { ORIGIN, TEST_ENV, startDatabase, stopDatabase, buildApp, signedInAgent } from './helpers.js'
+import {
+  ORIGIN,
+  TEST_ENV,
+  startDatabase,
+  stopDatabase,
+  buildApp,
+  signedInAgent,
+} from './helpers.js'
 
 // Replace the real Google check with a pretend one, so the tests decide what "Google" says.
 vi.mock('../services/googleVerifier.js', () => ({ verifyGoogleToken: vi.fn() }))

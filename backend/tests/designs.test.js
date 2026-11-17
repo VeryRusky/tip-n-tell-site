@@ -134,8 +134,18 @@ describe('design numbers, names and order', () => {
   })
 
   it('renames, hides and reorders designs', async () => {
-    const a = await Design.create({ number: 1, name: 'A', colors: ['#ffffff', '#000000'], order: 0 })
-    const b = await Design.create({ number: 2, name: 'B', colors: ['#ffffff', '#000000'], order: 1 })
+    const a = await Design.create({
+      number: 1,
+      name: 'A',
+      colors: ['#ffffff', '#000000'],
+      order: 0,
+    })
+    const b = await Design.create({
+      number: 2,
+      name: 'B',
+      colors: ['#ffffff', '#000000'],
+      order: 1,
+    })
 
     const renamed = await agent
       .patch(`/api/admin/designs/${a._id}`)

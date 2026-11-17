@@ -10,7 +10,9 @@ import { seedIfEmpty } from './seedData.js'
 const uri = process.env.MONGODB_URI
 if (!uri) {
   console.log('MONGODB_URI is not set in backend/.env, so there is no database to seed.')
-  console.log('(pnpm dev without MONGODB_URI uses a temporary database that is seeded automatically.)')
+  console.log(
+    '(pnpm dev without MONGODB_URI uses a temporary database that is seeded automatically.)',
+  )
   process.exit(0)
 }
 

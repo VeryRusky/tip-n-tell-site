@@ -31,8 +31,28 @@ pnpm lint
 | Design names, colours, and photos later (`image: '/designs/3.jpg'`) | `src/data/designs.js` |
 | Brand colours and fonts (and a seasonal theme) | `src/assets/theme.css` |
 
-Pages never read `src/data/` directly. Everything goes through `src/services/api.js`, so when the
-Express + MongoDB API exists, only the function bodies in that file need to change to Axios calls.
+Pages never read `src/data/` directly. Everything goes through `src/services/api.js`.
+
+## Real data and the owner's admin pages
+
+The Express + MongoDB API is in `../backend/` (see its README). To run this site against it:
+
+```bash
+cp .env.example .env.development   # VITE_API_URL=/api
+pnpm dev                           # with `pnpm dev` also running in ../backend
+```
+
+- `src/services/api.js` then reads slots and designs from the API (Axios). Prices stay in
+  `src/data/prices.js`. Without `VITE_API_URL` it uses the sample data, as in the demo.
+- In development, Vite forwards `/api` and `/uploads` to `http://localhost:8000`
+  (`vite.config.js`), so the site and API share one address and no CORS is needed.
+- The owner's pages are `/admin/login`, `/admin` (calendar) and `/admin/designs`. They
+  are registered only when `VITE_API_URL` is set, loaded on demand, not linked from the site,
+  and marked `noindex`. Files: `src/views/admin/`, `src/components/admin/`,
+  `src/router/adminRoutes.js`, `src/stores/admin.js`, `src/services/adminApi.js`.
+- A slot can be `open`, `pending` (shown to customers as "On hold", not pickable) or `booked`.
+
+Tests: `pnpm test` (Vitest + Vue Test Utils, in `src/components/__tests__/`).
 
 ## Project layout
 

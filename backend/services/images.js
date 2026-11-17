@@ -26,7 +26,9 @@ export async function processPhoto(buffer) {
     const metadata = await sharp(buffer, { limitInputPixels: 60_000_000 }).metadata()
     format = metadata.format
   } catch {
-    throw new BadRequest('That file is not a photo we can read. Please choose a JPEG, PNG or WebP picture.')
+    throw new BadRequest(
+      'That file is not a photo we can read. Please choose a JPEG, PNG or WebP picture.',
+    )
   }
   if (!ALLOWED_FORMATS.includes(format)) {
     throw new BadRequest('Please choose a JPEG, PNG or WebP picture.')
