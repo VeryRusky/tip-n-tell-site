@@ -7,7 +7,7 @@ import BrandWordmark from '@/components/BrandWordmark.vue'
 import HowItWorks from '@/components/HowItWorks.vue'
 import PriceList from '@/components/PriceList.vue'
 import DesignGallery from '@/components/DesignGallery.vue'
-import PolicyList from '@/components/PolicyList.vue'
+import PolicyTiles from '@/components/PolicyTiles.vue'
 import IconPin from '@/components/icons/IconPin.vue'
 import IconSparkle from '@/components/icons/IconSparkle.vue'
 import IconBow from '@/components/icons/IconBow.vue'
@@ -54,12 +54,15 @@ const fromPrice = computed(() => {
     </div>
 
     <!--
-      The rest of the page. On phones the sections stack in the order written here.
-      From md up, the order-md-* classes move the three small cards to the top
-      (side by side at lg) and the design gallery below them.
+      The rest of the page. On phones the sections stack in the order written here
+      (Prices, Designs, Good to know, Where). From md up, the order-md-* classes
+      rearrange them by how much each one holds:
+        row 1: Prices (7 columns) and Where (5 columns), side by side
+        row 2: Good to know, full width, as four small tiles
+        row 3: the design gallery
     -->
     <div class="row g-4 mt-0">
-      <section id="prices" class="col-md-6 col-lg-4 order-md-1" aria-labelledby="prices-title">
+      <section id="prices" class="col-md-7 order-md-1" aria-labelledby="prices-title">
         <div class="panel h-100">
           <h2 id="prices-title">Prices</h2>
           <PriceList />
@@ -75,18 +78,19 @@ const fromPrice = computed(() => {
         <DesignGallery />
       </section>
 
-      <section class="col-md-6 col-lg-4 order-md-2" aria-labelledby="good-to-know-title">
-        <div class="panel h-100">
-          <h2 id="good-to-know-title">Good to know</h2>
-          <PolicyList home-only />
-          <RouterLink :to="{ name: 'policies' }" class="btn btn-outline-primary w-100 mt-2">
+      <section class="col-12 order-md-3" aria-labelledby="good-to-know-title">
+        <h2 id="good-to-know-title" class="mt-2">Good to know</h2>
+        <PolicyTiles />
+        <p class="text-center mt-3 mb-0">
+          <RouterLink :to="{ name: 'policies' }" class="btn btn-outline-primary">
             Read all policies
           </RouterLink>
-        </div>
+        </p>
       </section>
 
-      <section class="col-lg-4 order-md-3" aria-labelledby="where-title">
-        <div class="panel h-100">
+      <section class="col-md-5 order-md-2" aria-labelledby="where-title">
+        <!-- d-flex flex-column + mt-auto keep the Instagram button at the bottom of the card. -->
+        <div class="panel h-100 d-flex flex-column">
           <h2 id="where-title">Where</h2>
           <p class="where-area"><IconPin /> {{ site.area }}</p>
           <p class="small-print">I'll share the exact location when I confirm your booking.</p>
@@ -96,7 +100,7 @@ const fromPrice = computed(() => {
             :href="instagramProfileUrl"
             target="_blank"
             rel="noopener noreferrer"
-            class="btn btn-outline-primary w-100"
+            class="btn btn-outline-primary w-100 mt-auto"
           >
             @{{ site.instagramHandle }}
           </a>

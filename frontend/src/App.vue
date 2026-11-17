@@ -2,11 +2,13 @@
 import { RouterView } from 'vue-router'
 import SiteHeader from '@/components/SiteHeader.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
+import DemoBanner from '@/components/DemoBanner.vue'
 </script>
 
 <template>
   <a href="#main" class="skip-link">Skip to content</a>
   <SiteHeader />
+  <DemoBanner />
   <RouterView />
   <SiteFooter />
 </template>

@@ -1,19 +1,13 @@
 <script setup>
-import { computed } from 'vue'
 import { policies } from '@/config/site'
 import IconHeart from './icons/IconHeart.vue'
 
-// Her terms. `homeOnly` shows the short list used on the home page.
-const props = defineProps({
-  homeOnly: { type: Boolean, default: false },
-})
-
-const shown = computed(() => (props.homeOnly ? policies.filter((p) => p.onHome) : policies))
+// Her terms in full, for the Policies page. (The home page uses PolicyTiles.vue.)
 </script>
 
 <template>
   <ul class="policy-list">
-    <li v-for="policy in shown" :key="policy.id">
+    <li v-for="policy in policies" :key="policy.id">
       <IconHeart class="policy-icon" />
       <div>
         <h3 class="policy-title">{{ policy.title }}</h3>

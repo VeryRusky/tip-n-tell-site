@@ -317,6 +317,16 @@ async function startOver() {
   color: var(--tt-deep-rose);
 }
 
+/*
+  Laptops: show the "Message copied" line under the main button instead of above it,
+  so pressing the button never pushes the button itself down.
+*/
+@media (min-width: 992px) {
+  .copy-status {
+    order: 1;
+  }
+}
+
 .send-button {
   white-space: nowrap;
 }
