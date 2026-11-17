@@ -267,7 +267,7 @@ const nailIndex = (n) => (props.view === 'tips' ? n + 1 : n)
   <svg
     ref="svg"
     class="hand-art"
-    :class="[scrub ? 'is-scrub' : 'is-auto', `view-${view}`]"
+    :class="[scrub ? 'is-scrub' : 'is-auto', `view-${view}`, { 'is-close': close }]"
     :viewBox="drawing.viewBox.join(' ')"
     :style="{ '--unit': unit }"
     aria-hidden="true"
@@ -380,6 +380,11 @@ const nailIndex = (n) => (props.view === 'tips' ? n + 1 : n)
   width: 100%;
   height: 100%;
   overflow: visible;
+}
+
+/* The close crop really is a crop: the thumb stays out of frame however wide the box is. */
+.hand-art.is-close {
+  overflow: hidden;
 }
 
 .fade-stop {

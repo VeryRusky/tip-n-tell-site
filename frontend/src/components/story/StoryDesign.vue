@@ -38,7 +38,8 @@ const current = ref(CHANGES.length)
 const visual = ref(null)
 
 // Phones show a closer crop of the hand (the four fingers), so the nails are bigger.
-const isLaptop = useMediaQuery('(min-width: 992px)')
+// Tablets and laptops have room for the whole hand.
+const isWide = useMediaQuery('(min-width: 768px)')
 
 // Runs on every scrolled frame. Small things that change all the time are written as
 // CSS variables (no Vue re-render); `progress` only matters when a design changes.
@@ -49,7 +50,6 @@ function onProgress(p) {
 
   // How far each design has wiped over the ones before it: the first is painted from 0.15
   // to 0.4 (nail after nail), each later one is a quick wipe starting at its CHANGES time.
-  // The same numbers fade in each design's background tint.
   const wipes = [phase(p, 0.15, 0.4), ...CHANGES.map((at) => phase(p, at, at + CHANGE_LENGTH))]
   const draw = easeOut(phase(p, 0.02, 0.15))
 
@@ -59,6 +59,12 @@ function onProgress(p) {
     '--wipe-1': wipes[1],
     '--wipe-2': wipes[2],
     '--wipe-3': wipes[3],
+    // Each design's background tint fades in with its wipe and out as the next one arrives,
+    // so only one soft colour shows at a time.
+    '--tint-0': wipes[0] * (1 - wipes[1]),
+    '--tint-1': wipes[1] * (1 - wipes[2]),
+    '--tint-2': wipes[2] * (1 - wipes[3]),
+    '--tint-3': wipes[3],
     // The hand rises in as it draws, tilts gently while the designs change, then settles.
     '--rise': 1 - draw,
     '--tilt': Math.sin(Math.PI * phase(p, 0.4, 0.9)),
@@ -99,11 +105,11 @@ const topDesign = computed(() => designs.value[current.value] ?? null)
           v-for="(design, i) in designs"
           :key="design.id"
           class="tint"
-          :style="{ '--tint-color': design.colors[0], '--tint': `var(--wipe-${i})` }"
+          :style="{ '--tint-color': design.colors[0], '--tint': `var(--tint-${i})` }"
         ></div>
 
         <div class="hand-wrap">
-          <HandArt :layers="designs" :close="!isLaptop" scrub />
+          <HandArt :layers="designs" :close="!isWide" scrub />
           <svg class="settle-sparkle sparkle-a" viewBox="0 0 24 24">
             <path
               d="M12 2c.6 5.2 2.8 7.4 8 8-5.2.6-7.4 2.8-8 8-.6-5.2-2.8-7.4-8-8 5.2-.6 7.4-2.8 8-8z"
