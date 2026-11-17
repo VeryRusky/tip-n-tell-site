@@ -60,6 +60,29 @@ const emit = defineEmits(['select'])
   border: 2.5px solid var(--tt-deep-rose);
   /* Keep the size the same when the border gets thicker. */
   padding: calc(0.75rem - 1px) calc(1rem - 1px);
+  /* Settles into place when chosen. */
+  animation: choice-settle 0.3s var(--tt-ease-pop);
+}
+
+@keyframes choice-settle {
+  from {
+    transform: scale(0.97);
+  }
+}
+
+/* The tick draws itself (IconCheck has pathLength="1"). */
+.choice-mark :deep(path) {
+  stroke-dasharray: 1 1;
+  animation: tick-draw 0.3s var(--tt-ease-out) 0.05s both;
+}
+
+@keyframes tick-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 .choice-card.disabled {

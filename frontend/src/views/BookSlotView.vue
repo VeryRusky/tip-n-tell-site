@@ -10,6 +10,7 @@ import MonthCalendar from '@/components/MonthCalendar.vue'
 import DaySlots from '@/components/DaySlots.vue'
 import MidSessionNote from '@/components/MidSessionNote.vue'
 import RequestSummary from '@/components/RequestSummary.vue'
+import RequestTicket from '@/components/RequestTicket.vue'
 
 const router = useRouter()
 const slotsStore = useSlotsStore()
@@ -121,9 +122,11 @@ function goNext() {
       </div>
     </div>
 
+    <template #card><RequestTicket /></template>
+    <!-- Phones: a one-line summary in the bottom bar (laptops have the ticket instead). -->
     <template #summary>
-      <RequestSummary v-if="booking.slot" />
-      <p v-else class="small-print mb-0">Choose a day, then a time, to continue.</p>
+      <RequestSummary v-if="booking.slot" class="d-lg-none" />
+      <p v-else class="small-print mb-0 d-lg-none">Choose a day, then a time, to continue.</p>
     </template>
     <template #actions>
       <button

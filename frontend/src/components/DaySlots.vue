@@ -20,10 +20,13 @@ const catalog = useCatalogStore()
   <fieldset>
     <legend>{{ formatLongDate(date) }}</legend>
     <p class="small-print mb-2">Choose a time.</p>
-    <div class="slot-options">
+    <!-- A new key for each day replays the entrance, so the day's times stagger in. -->
+    <div :key="date" class="slot-options">
       <ChoiceCard
-        v-for="slot in slots"
+        v-for="(slot, index) in slots"
         :key="slot.id"
+        class="slot-option"
+        :style="{ '--i': index }"
         name="slot"
         :value="slot.id"
         :checked="slot.id === selectedSlotId"
@@ -50,6 +53,19 @@ const catalog = useCatalogStore()
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+}
+
+.slot-option {
+  animation: slot-in 0.35s var(--tt-ease-out) both;
+  animation-delay: calc(var(--i) * 50ms);
+}
+
+/* (Once chosen, ChoiceCard's own "settle" pop replaces this entrance.) */
+@keyframes slot-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem);
+  }
 }
 
 .slot-row {

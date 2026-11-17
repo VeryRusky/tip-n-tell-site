@@ -178,6 +178,43 @@ legend {
   transform: none;
 }
 
+/*
+  ---- Page transitions (App.vue) ----
+  The leaving page is hidden straight away. Between booking steps only the step's title and
+  content (.booking-content) slide in; the header, step indicator and bottom bar / side card
+  stay where they are.
+*/
+.page-leave-active,
+.step-forward-leave-active,
+.step-back-leave-active {
+  display: none;
+}
+
+.page-enter-active {
+  transition: opacity 0.25s ease-out;
+}
+
+.page-enter-from {
+  opacity: 0;
+}
+
+.step-forward-enter-active .booking-content,
+.step-back-enter-active .booking-content {
+  transition:
+    transform 0.4s var(--tt-ease-out),
+    opacity 0.3s ease-out;
+}
+
+.step-forward-enter-from .booking-content {
+  opacity: 0;
+  transform: translateX(2.5rem);
+}
+
+.step-back-enter-from .booking-content {
+  opacity: 0;
+  transform: translateX(-2.5rem);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     scroll-behavior: auto !important;

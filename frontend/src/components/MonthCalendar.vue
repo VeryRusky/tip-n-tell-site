@@ -291,11 +291,18 @@ td {
   color: var(--tt-deep-rose);
 }
 
-/* Selected day: thick border plus filled colour, not colour alone. */
+/* Selected day: thick border plus filled colour, not colour alone. It pops in briefly. */
 .day.selected {
   background: var(--tt-deep-rose);
   border: 2px solid var(--tt-ink);
   color: #fff;
+  animation: day-pop 0.3s var(--tt-ease-pop);
+}
+
+@keyframes day-pop {
+  from {
+    transform: scale(0.86);
+  }
 }
 
 .day.selected .day-number,

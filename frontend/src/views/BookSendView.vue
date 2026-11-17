@@ -6,10 +6,11 @@ import { instagramLink } from '@/utils/device'
 import { useBookingStore } from '@/stores/booking'
 import { useCatalogStore } from '@/stores/catalog'
 import { useSlotsStore } from '@/stores/slots'
-import { formatLongDate, formatTime, formatPrice } from '@/utils/format'
 import BookingLayout from '@/components/BookingLayout.vue'
 import MidSessionNote from '@/components/MidSessionNote.vue'
 import CopyToast from '@/components/CopyToast.vue'
+import CopyBurst from '@/components/CopyBurst.vue'
+import RequestTicket from '@/components/RequestTicket.vue'
 import IconCheck from '@/components/icons/IconCheck.vue'
 import IconSend from '@/components/icons/IconSend.vue'
 
@@ -26,10 +27,12 @@ const instagram = instagramLink()
 const messageBox = ref(null)
 const copyState = ref('') // '', 'copied' or 'failed'
 const toastTrigger = ref(0) // tells the pop-up note to show again on every tap
+const burstTrigger = ref(0) // a little burst of sparkles, only when copying worked
 
 function finishCopy(copied) {
   copyState.value = copied ? 'copied' : 'failed'
   toastTrigger.value++
+  if (copied) burstTrigger.value++
 }
 
 // Runs when the "Copy and open Instagram" link is tapped. The link itself then opens
@@ -88,62 +91,20 @@ async function startOver() {
       </p>
     </div>
 
-    <!-- Summary and message side by side on large screens, stacked on smaller ones. -->
+    <!--
+      Phones and tablets: the request as an appointment ticket, above the message.
+      Laptops show the same ticket at the top of the side card instead.
+    -->
     <div class="row g-4 mt-0">
-      <div class="col-xl-6">
-        <section class="panel h-100" aria-labelledby="request-title">
-          <h2 id="request-title">Your request</h2>
-          <dl class="request-list">
-            <div class="request-row">
-              <dt>Time</dt>
-              <dd>
-                {{ formatLongDate(booking.slot.date) }}, {{ formatTime(booking.slot.time) }}
-                <span v-if="booking.slot.special" class="d-block small-print">
-                  Specially opened slot (+{{ formatPrice(catalog.specialSlotFee) }})
-                </span>
-              </dd>
-              <RouterLink :to="{ name: 'book-slot' }" class="change-link">
-                Change<span class="visually-hidden"> time</span>
-              </RouterLink>
-            </div>
-            <div class="request-row">
-              <dt>Service</dt>
-              <dd>
-                {{ booking.service?.name }}
-                <template v-for="addOn in booking.addOns" :key="addOn.id">
-                  <span class="d-block">+ {{ addOn.name }}</span>
-                </template>
-              </dd>
-              <RouterLink :to="{ name: 'book-service' }" class="change-link">
-                Change<span class="visually-hidden"> service</span>
-              </RouterLink>
-            </div>
-            <div class="request-row">
-              <dt>Design</dt>
-              <dd v-if="booking.isOwnDesign">
-                My own design <span class="d-block small-print">I'll send a picture in the DM</span>
-              </dd>
-              <dd v-else>#{{ booking.design?.id }} {{ booking.design?.name }}</dd>
-              <RouterLink :to="{ name: 'book-design' }" class="change-link">
-                Change<span class="visually-hidden"> design</span>
-              </RouterLink>
-            </div>
-            <div class="request-row total-row">
-              <dt>Estimate</dt>
-              <dd>
-                {{ booking.estimateText }}
-                <span v-if="booking.isOwnDesign" class="d-block small-print">
-                  I'll quote the design price in DM.
-                </span>
-              </dd>
-            </div>
-          </dl>
-          <MidSessionNote v-if="booking.isMidSession" />
-        </section>
+      <div class="col-12 d-lg-none">
+        <RequestTicket editable arriving class="page-ticket" />
+      </div>
+      <div v-if="booking.isMidSession" class="col-12 mt-0">
+        <MidSessionNote />
       </div>
 
-      <div class="col-xl-6">
-        <section class="panel h-100" aria-labelledby="message-title">
+      <div class="col-12">
+        <section class="panel" aria-labelledby="message-title">
           <h2 id="message-title">Your message</h2>
           <!-- The steps match where the button goes on this device. -->
           <ol v-if="instagram.opensChat" class="send-steps">
@@ -184,6 +145,8 @@ async function startOver() {
       </button>
     </p>
 
+    <template #card><RequestTicket editable arriving /></template>
+
     <!-- Feedback after tapping the button, next to it and read out by screen readers. -->
     <template #summary>
       <!-- Pop-up note: just above the bar on phones, top right on laptops (see styles). -->
@@ -197,7 +160,11 @@ async function startOver() {
           />
         </div>
       </div>
-      <!-- The same news as a line next to the button (the toast is what screen readers hear). -->
+      <!--
+        The same news as a line next to the button (the toast is what screen readers hear).
+        Phones: above the button, so the button never moves. Laptops: at the end of the card,
+        below both buttons, so appearing pushes nothing down.
+      -->
       <p class="copy-status">
         <template v-if="copyState === 'copied'">
           <IconCheck /> Message copied.
@@ -226,6 +193,7 @@ async function startOver() {
         @click="copyMessage"
       >
         <IconSend class="d-none d-sm-inline" /> Copy and open Instagram
+        <CopyBurst :trigger="burstTrigger" />
       </a>
     </template>
     <template v-if="instagram.opensChat" #below>
@@ -252,48 +220,6 @@ async function startOver() {
   margin-bottom: 0.25rem;
 }
 
-.request-list {
-  margin: 0;
-}
-
-.request-row {
-  display: grid;
-  grid-template-columns: 5.5rem 1fr auto;
-  gap: 0.5rem;
-  align-items: baseline;
-  padding: 0.6rem 0;
-  border-bottom: 1px dashed var(--tt-line);
-}
-
-.request-row dt {
-  font-weight: 700;
-  color: var(--tt-muted);
-  font-size: 0.95rem;
-}
-
-.request-row dd {
-  margin: 0;
-}
-
-.change-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 0.25rem;
-  font-weight: 700;
-  font-size: 0.95rem;
-}
-
-.total-row {
-  border-bottom: 0;
-}
-
-.total-row dd {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--tt-deep-rose);
-}
-
 .send-steps {
   padding-left: 1.25rem;
   margin-bottom: 0.75rem;
@@ -318,7 +244,19 @@ async function startOver() {
 }
 
 .send-button {
+  position: relative; /* the sparkle burst is placed from its centre */
   white-space: nowrap;
+}
+
+/* The phone ticket sits on the cream page, so its side notches are cream. */
+.page-ticket {
+  --ticket-cutout: var(--tt-cream);
+}
+
+@media (min-width: 992px) {
+  .copy-status {
+    order: 2;
+  }
 }
 
 /* Small phones: slightly smaller text so the label fits on one line next to Back. */

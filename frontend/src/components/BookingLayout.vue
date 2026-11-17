@@ -13,7 +13,11 @@ import BookingSteps from './BookingSteps.vue'
 //
 // The same <aside> is the bottom bar on small screens and the side card on large ones.
 // Slots:  default = the step's content,  #summary = running summary,
-//         #actions = main button(s) next to Back,  #below = an extra full-width row.
+//         #actions = main button(s) next to Back,  #below = an extra full-width row,
+//         #card = laptop-only content at the top of the side card (appointment ticket, preview).
+//
+// Only `.booking-content` (title and step content) slides when moving between steps
+// (see the step transitions in main.css). The step indicator and the bar/card stay still.
 defineProps({
   step: { type: Number, required: true },
   title: { type: String, required: true },
@@ -28,14 +32,18 @@ defineProps({
     <div class="row gx-0 gx-lg-5">
       <div class="col-lg-8">
         <BookingSteps :current="step" />
-        <h1>{{ title }}</h1>
-        <slot />
+        <div class="booking-content">
+          <h1>{{ title }}</h1>
+          <slot />
+        </div>
       </div>
 
       <aside class="col-lg-4 booking-aside" :aria-label="asideTitle">
         <div class="booking-actions">
-          <!-- Only the large-screen card has a heading; the phone bar stays compact. -->
-          <h2 class="aside-title d-none d-lg-block">{{ asideTitle }}</h2>
+          <!-- Laptops only: the appointment ticket (and the design preview) head the card. -->
+          <div v-if="$slots.card" class="aside-card d-none d-lg-flex">
+            <slot name="card" />
+          </div>
           <slot name="summary" />
           <!--
             Back comes after the main button in the HTML, so keyboard users reach the
@@ -61,6 +69,8 @@ defineProps({
 <style scoped>
 .booking-page {
   padding-top: 1rem;
+  /* A step sliding in never makes the page scroll sideways (clip keeps sticky working). */
+  overflow-x: clip;
 }
 
 .actions-row {
@@ -86,8 +96,9 @@ defineProps({
   gap: 0.5rem;
 }
 
-.aside-title {
-  font-size: 1.3rem;
+.aside-card {
+  flex-direction: column;
+  gap: 0.75rem;
   margin-bottom: 0.25rem;
 }
 
@@ -143,6 +154,16 @@ defineProps({
 
   .back-button {
     order: 1;
+  }
+}
+
+/*
+  Short laptop screens: the card (ticket, preview and buttons) could be taller than the
+  screen, which would hide its buttons while it is stuck. There it scrolls with the page.
+*/
+@media (min-width: 992px) and (max-height: 760px) {
+  .booking-actions {
+    position: static;
   }
 }
 </style>

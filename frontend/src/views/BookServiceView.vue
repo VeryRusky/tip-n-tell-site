@@ -7,6 +7,7 @@ import { formatPrice } from '@/utils/format'
 import BookingLayout from '@/components/BookingLayout.vue'
 import ChoiceCard from '@/components/ChoiceCard.vue'
 import RequestSummary from '@/components/RequestSummary.vue'
+import RequestTicket from '@/components/RequestTicket.vue'
 
 const router = useRouter()
 const booking = useBookingStore()
@@ -75,7 +76,9 @@ function goNext() {
       </div>
     </div>
 
-    <template #summary><RequestSummary /></template>
+    <template #card><RequestTicket /></template>
+    <!-- Phones: a one-line summary in the bottom bar (laptops have the ticket instead). -->
+    <template #summary><RequestSummary class="d-lg-none" /></template>
     <template #actions>
       <button
         type="button"
