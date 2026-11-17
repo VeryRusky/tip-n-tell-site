@@ -12,6 +12,9 @@ export const site = {
   // Only the area is public. Never put her home address or WhatsApp number here.
   area: 'Pasir Ris',
 
+  // Her usual times (24-hour clock). The admin calendar offers these as one-tap buttons.
+  usualTimes: ['10:00', '14:00', '16:00'],
+
   // The middle session (24-hour clock). Long sets booked here can run into the next slot.
   midSessionTime: '14:00',
   midSessionAdvice:

@@ -12,6 +12,18 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "frontend", "dev", "--port", "5180", "--strictPort"],
       "port": 5180
+    },
+    {
+      "name": "tipntell-api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "backend", "dev"],
+      "port": 8000
+    },
+    {
+      "name": "tipntell-admin-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "frontend", "dev", "--port", "5181", "--strictPort"],
+      "port": 5181
     }
   ]
 }

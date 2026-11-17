@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import SiteHeader from '@/components/SiteHeader.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
@@ -11,6 +11,14 @@ import DemoBanner from '@/components/DemoBanner.vue'
 //   anything else:         'page', a short fade
 const route = useRoute()
 const transitionName = ref('page')
+
+// The owner's admin pages have their own simple header (AdminLayout.vue). Before the first
+// page has finished loading, route.meta is still empty, so also check the address; this
+// stops the public header flashing up on /admin.
+const isAdminPage = computed(
+  () =>
+    route.meta.admin || (route.matched.length === 0 && window.location.pathname.includes('/admin')),
+)
 watch(
   () => route.meta.step,
   (toStep, fromStep) => {
@@ -22,8 +30,10 @@ watch(
 
 <template>
   <a href="#main" class="skip-link">Skip to content</a>
-  <SiteHeader />
-  <DemoBanner />
+  <template v-if="!isAdminPage">
+    <SiteHeader />
+    <DemoBanner />
+  </template>
   <!--
     The old page disappears at once and the new one eases in, so a page is never shown twice.
     `duration` tells Vue how long to keep the transition classes: the moving part is inside
@@ -34,7 +44,7 @@ watch(
       <component :is="Component" :key="current.path" />
     </Transition>
   </RouterView>
-  <SiteFooter />
+  <SiteFooter v-if="!isAdminPage" />
 </template>
 
 <style scoped>

@@ -11,6 +11,12 @@ import BookDesignView from '@/views/BookDesignView.vue'
 import BookSendView from '@/views/BookSendView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 
+// The owner's admin pages exist only when the site runs with the real API (VITE_API_URL).
+// They are loaded here only in that case, so the sample-data demo build contains no admin
+// code at all. (`await` at the top of a module waits for the import before going on.)
+const useApi = !!import.meta.env.VITE_API_URL
+const admin = useApi ? await import('./adminRoutes') : null
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -41,6 +47,7 @@ const router = createRouter({
       component: BookSendView,
       meta: { step: 4, title: 'Send your request' },
     },
+    ...(admin ? admin.adminRoutes : []),
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
@@ -71,7 +78,11 @@ router.beforeEach((to) => {
   return { name: bookingSteps[booking.furthestStep - 1].name }
 })
 
+// Admin pages need the owner to be signed in.
+if (admin) router.beforeEach(admin.adminGuard)
+
 router.afterEach((to) => {
+  if (admin) admin.updateRobotsTag(to)
   document.title =
     to.name === 'home'
       ? `${site.brandName} · nails in ${site.area}`
