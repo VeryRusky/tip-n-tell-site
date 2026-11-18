@@ -91,6 +91,13 @@ export function loadConfig(env = process.env) {
     )
   }
 
+  // ---- How long booking details are kept after the appointment (personal data) ----
+  const keepDaysText = String(env.BOOKING_DETAILS_KEEP_DAYS ?? '').trim()
+  const bookingKeepDays = keepDaysText === '' ? 30 : Number(keepDaysText)
+  if (!Number.isInteger(bookingKeepDays) || bookingKeepDays < 1 || bookingKeepDays > 365) {
+    problems.push('BOOKING_DETAILS_KEEP_DAYS must be a whole number of days from 1 to 365.')
+  }
+
   if (isProduction) {
     if (!env.MONGODB_URI) problems.push('MONGODB_URI is required in production.')
     if (!adminEmail) problems.push('ADMIN_EMAIL is required in production.')
@@ -122,6 +129,8 @@ export function loadConfig(env = process.env) {
     trustProxy: isProduction ? Number(trustProxyText) : readTrustProxy(trustProxyText),
     storageDriver: env.STORAGE_DRIVER || 'local',
     uploadsDir: env.UPLOADS_DIR || '',
+    // Booking details are removed from slots dated more than this many days ago.
+    bookingKeepDays,
     // Login attempts allowed per IP address in 15 minutes.
     loginLimit: Number(env.LOGIN_RATE_LIMIT) || 10,
   }

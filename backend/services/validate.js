@@ -59,3 +59,80 @@ export function cleanName(value) {
 export function check(ok, message) {
   if (!ok) throw new BadRequest(message)
 }
+
+// ---- Booking details (the owner's own notes on a booked or on-hold slot) ----
+
+// An id from the frontend's price list, e.g. 'extensions' or 'foreign-removal':
+// lower-case letters and numbers joined by single dashes, at most 40 characters.
+export function isCatalogueId(value) {
+  return typeof value === 'string' && value.length <= 40 && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(value)
+}
+
+// Text she typed: spaces at the ends removed, runs of spaces (and new lines) made single.
+// Empty text counts as "not filled in". Returns the tidied text, or undefined.
+function cleanText(value, maxLength, message) {
+  if (value === undefined || value === null) return undefined
+  if (typeof value !== 'string') throw new BadRequest(message)
+  const text = value.trim().replace(/\s+/g, ' ')
+  if (text.length === 0) return undefined
+  if (text.length > maxLength) throw new BadRequest(message)
+  return text
+}
+
+const BOOKING_FIELDS = ['customer', 'service', 'design', 'addOns', 'price', 'note']
+
+// Checks booking details field by field and returns a NEW object with only the known
+// fields that were filled in, or null when nothing was filled in.
+// Throws BadRequest for anything else (an unknown field, a wrong type, too long...).
+//   customer  her customer's name or Instagram name, 1 to 40 characters
+//   service   a service id, e.g. 'extensions'
+//   design    a design number (1 to 9999) or 'own' (the customer's own design)
+//   addOns    up to 5 add-on ids
+//   price     a number from 0 to 1000
+//   note      up to 200 characters
+export function cleanBooking(value) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new BadRequest('Booking details must be an object, or null to clear them.')
+  }
+  for (const key of Object.keys(value)) {
+    check(BOOKING_FIELDS.includes(key), 'Booking details have an unknown field.')
+  }
+
+  const booking = {}
+  const customer = cleanText(value.customer, 40, 'The name must be 1 to 40 characters.')
+  if (customer) booking.customer = customer
+
+  if (value.service !== undefined && value.service !== null) {
+    check(isCatalogueId(value.service), 'Unknown service.')
+    booking.service = value.service
+  }
+
+  if (value.design !== undefined && value.design !== null) {
+    const design = value.design
+    check(
+      design === 'own' || (Number.isInteger(design) && design >= 1 && design <= 9999),
+      'The design must be a design number or "own".',
+    )
+    booking.design = design
+  }
+
+  if (value.addOns !== undefined && value.addOns !== null) {
+    check(Array.isArray(value.addOns) && value.addOns.length <= 5, 'Choose at most 5 add-ons.')
+    check(value.addOns.every(isCatalogueId), 'Unknown add-on.')
+    if (value.addOns.length > 0) booking.addOns = [...new Set(value.addOns)]
+  }
+
+  if (value.price !== undefined && value.price !== null) {
+    const price = value.price
+    check(
+      typeof price === 'number' && Number.isFinite(price) && price >= 0 && price <= 1000,
+      'The price must be a number from 0 to 1000.',
+    )
+    booking.price = Math.round(price * 100) / 100 // whole cents
+  }
+
+  const note = cleanText(value.note, 200, 'The note can be at most 200 characters.')
+  if (note) booking.note = note
+
+  return Object.keys(booking).length > 0 ? booking : null
+}

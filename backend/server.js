@@ -2,6 +2,7 @@ import 'dotenv/config' // reads backend/.env into process.env
 import { loadConfig } from './config.js'
 import { connectDatabase } from './db.js'
 import { createApp } from './app.js'
+import { startBookingCleanup } from './services/bookingCleanup.js'
 
 // Starts the API: check settings, connect to the database, then listen on PORT.
 async function start() {
@@ -26,6 +27,9 @@ async function start() {
   if (config.devLogin) {
     console.log('[admin] Dev login is ON (ALLOW_DEV_LOGIN=true). Never use this on the live site.')
   }
+
+  // Personal data is not kept forever: remove old booking details now and once a day.
+  startBookingCleanup(config.bookingKeepDays)
 
   const app = createApp(config)
   app.listen(config.port, () => {

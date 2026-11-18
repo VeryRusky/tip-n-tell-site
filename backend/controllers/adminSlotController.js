@@ -1,6 +1,14 @@
 import { Slot } from '../models/Slot.js'
 import { todayInSingapore, addMonths } from '../services/dates.js'
-import { check, isDate, isMonth, isTime, isStatus, isId } from '../services/validate.js'
+import {
+  check,
+  cleanBooking,
+  isDate,
+  isMonth,
+  isTime,
+  isStatus,
+  isId,
+} from '../services/validate.js'
 
 // The owner's calendar. Unlike the public list, this includes past days and uses
 // the database id, so a slot can be changed or removed.
@@ -10,14 +18,33 @@ import { check, isDate, isMonth, isTime, isStatus, isId } from '../services/vali
 // limit in app.js; the admin page splits a bigger job into several requests.
 export const MAX_SLOTS_PER_REQUEST = 100
 
+// Booking details may only be noted on a slot that someone has asked for.
+const CAN_HAVE_BOOKING = ['pending', 'booked']
+const NOT_ON_OPEN = 'Booking details can only be added to a slot that is on hold or booked.'
+
+// The booking details, copied field by field (only the known ones), or undefined.
+function toAdminBooking(booking) {
+  if (!booking) return undefined
+  const copy = {}
+  for (const key of ['customer', 'service', 'design', 'addOns', 'price', 'note']) {
+    if (booking[key] !== undefined && booking[key] !== null) copy[key] = booking[key]
+  }
+  return Object.keys(copy).length > 0 ? copy : undefined
+}
+
+// The admin's view of a slot. Unlike the public one (publicController.js) it includes
+// the database id and her booking details.
 function toAdminSlot(slot) {
-  return {
+  const adminSlot = {
     id: String(slot._id),
     date: slot.date,
     time: slot.time,
     status: slot.status,
     special: slot.special,
   }
+  const booking = toAdminBooking(slot.booking)
+  if (booking) adminSlot.booking = booking
+  return adminSlot
 }
 
 // Today in Singapore, and the last month she may open (12 months ahead).
@@ -97,10 +124,14 @@ export async function createMany(req, res) {
   })
 }
 
-// PATCH /api/admin/slots/:id  body: { status?: 'open' | 'pending' | 'booked', special?: true | false }
+// PATCH /api/admin/slots/:id
+// body: { status?: 'open' | 'pending' | 'booked', special?: true | false,
+//         booking?: { customer, service, design, addOns, price, note } or null to clear }
+// Booking details are only allowed on an on-hold or booked slot. Changing a slot to
+// open clears them (the admin page offers Undo, which sends them back).
 export async function update(req, res) {
   check(isId(req.params.id), 'Unknown slot.')
-  const { status, special } = req.body ?? {}
+  const { status, special, booking } = req.body ?? {}
   const changes = {}
   if (status !== undefined) {
     check(isStatus(status), 'status must be open, pending or booked.')
@@ -110,13 +141,25 @@ export async function update(req, res) {
     check(typeof special === 'boolean', 'special must be true or false.')
     changes.special = special
   }
-  check(Object.keys(changes).length > 0, 'Nothing to change.')
+  // undefined = leave the details as they are, null = clear, an object = replace them.
+  const newBooking = booking === undefined || booking === null ? booking : cleanBooking(booking)
+  check(Object.keys(changes).length > 0 || booking !== undefined, 'Nothing to change.')
 
-  const slot = await Slot.findByIdAndUpdate(
-    req.params.id,
-    { $set: changes },
-    { returnDocument: 'after' },
-  ).lean()
+  const existing = await Slot.findById(req.params.id).lean()
+  if (!existing) return res.status(404).json({ error: 'That slot no longer exists.' })
+  const finalStatus = changes.status ?? existing.status
+  if (newBooking) check(CAN_HAVE_BOOKING.includes(finalStatus), NOT_ON_OPEN)
+
+  const update = { $set: changes }
+  if (newBooking) update.$set.booking = newBooking
+  else if (newBooking === null || !CAN_HAVE_BOOKING.includes(finalStatus)) {
+    update.$unset = { booking: 1 }
+  }
+  if (Object.keys(update.$set).length === 0) delete update.$set
+
+  const slot = await Slot.findByIdAndUpdate(req.params.id, update, {
+    returnDocument: 'after',
+  }).lean()
   if (!slot) return res.status(404).json({ error: 'That slot no longer exists.' })
   req.app.locals.publicCache.clear() // show the change on the public site now
   res.json(toAdminSlot(slot))
@@ -154,8 +197,9 @@ export async function removeMany(req, res) {
   })
 }
 
-// POST /api/admin/slots/restore  body: { slots: [{ date, time, status, special }, ...] }
-// Puts removed slots back (the Undo button) with the same day, time, status and special.
+// POST /api/admin/slots/restore  body: { slots: [{ date, time, status, special, booking? }, ...] }
+// Puts removed slots back (the Undo button) with the same day, time, status, special and
+// booking details (details only on on-hold or booked slots, checked like PATCH).
 // Like opening times: only today up to 12 months ahead, and a day and time that already has
 // a slot is skipped, never overwritten. The slots get new ids.
 export async function restoreMany(req, res) {
@@ -173,6 +217,9 @@ export async function restoreMany(req, res) {
     check(isTime(slot.time), 'Each time must look like 14:00.')
     check(isStatus(slot.status), 'status must be open, pending or booked.')
     check(typeof slot.special === 'boolean', 'special must be true or false.')
+    if (slot.booking !== undefined && slot.booking !== null) {
+      check(CAN_HAVE_BOOKING.includes(slot.status), NOT_ON_OPEN)
+    }
   }
   const range = allowedRange()
   check(
@@ -180,11 +227,15 @@ export async function restoreMany(req, res) {
     'Days must be from today up to 12 months ahead.',
   )
 
-  // Copy only the four checked values (never the whole object), without repeats.
+  // Copy only the checked values (never the whole object), without repeats.
   const wanted = new Map()
-  for (const { date, time, status, special } of slots) {
+  for (const { date, time, status, special, booking } of slots) {
     const key = `${date}T${time}`
-    if (!wanted.has(key)) wanted.set(key, { date, time, status, special })
+    if (wanted.has(key)) continue
+    const restored = { date, time, status, special }
+    const details = booking === undefined || booking === null ? null : cleanBooking(booking)
+    if (details) restored.booking = details
+    wanted.set(key, restored)
   }
 
   await leaveOutExisting(wanted, [...new Set(slots.map((slot) => slot.date))])

@@ -6,9 +6,12 @@ The Express + MongoDB API behind the booking site. It does two jobs:
 2. **The owner's admin pages**: she signs in with her Google account and updates the
    calendar and her design photos herself, mostly from her phone.
 
-It stores **no customer data**: no names, phones, emails or notes. A slot is only a date, a
-time, a status (`open`, `pending` = on hold, `booked`) and whether it is specially opened.
-Customers still send their request to her by Instagram DM; only she changes a slot.
+A slot is a date, a time, a status (`open`, `pending` = on hold, `booked`) and whether it is
+specially opened. Customers still send their request to her by Instagram DM; only she changes
+a slot. Visitors are never asked for anything and nothing about them is stored. The **only**
+personal data is what **she** types into a booked or on-hold slot (optional: a name or
+Instagram name, what they booked, a short note). Only she can see it, and it is deleted 30
+days after the appointment. See "Booking details (personal data)" below.
 
 Built the way the WAD2 course teaches: Express 5, Mongoose, `routes/` → `controllers/` →
 `models/`. One difference: the course examples use `require(...)` (CommonJS). This project
@@ -109,10 +112,10 @@ All addresses start with `/api`. "Today" is always worked out in Singapore time.
 | `DELETE /session` | Sign out |
 | `GET /slots?month=2026-12` | The whole month, past days included |
 | `POST /slots` | Body `{ dates: [...], times: [...], special }`. Opens every time on every date; ones that already exist are skipped. |
-| `PATCH /slots/:id` | Body `{ status }` and/or `{ special }` |
+| `PATCH /slots/:id` | Body `{ status }`, `{ special }` and/or `{ booking }` (details object, or `null` to clear). Details only on on-hold or booked slots; changing to `open` clears them. |
 | `DELETE /slots/:id` | Remove a slot |
-| `POST /slots/remove` | Body `{ ids: [...] }` (1 to 100 slot ids). Removes them and answers `{ removed: [the slots as they were], missing }`. Ids already gone are skipped. |
-| `POST /slots/restore` | Body `{ slots: [{ date, time, status, special }, ...] }` (1 to 100). The Undo button: puts removed slots back with the same status and special. Today up to 12 months ahead only; a day and time that already has a slot is skipped, never overwritten. Answers `{ created, skipped }`. |
+| `POST /slots/remove` | Body `{ ids: [...] }` (1 to 100 slot ids). Removes them and answers `{ removed: [the slots as they were, booking details included], missing }`. Ids already gone are skipped. |
+| `POST /slots/restore` | Body `{ slots: [{ date, time, status, special, booking? }, ...] }` (1 to 100). The Undo button: puts removed slots back with the same status, special and booking details. Today up to 12 months ahead only; a day and time that already has a slot is skipped, never overwritten. Answers `{ created, skipped }`. |
 | `GET /designs` | Every design, hidden ones too |
 | `POST /designs` | Form upload: `name` + `image`. New designs go first. |
 | `PATCH /designs/:id` | Body `{ name }` and/or `{ hidden }` |
@@ -139,6 +142,7 @@ Copy `.env.example` to `.env`. `.env` is never committed.
 | `ALLOWED_ORIGINS` | The site's own address(es), comma separated, e.g. `https://tipntell.example.com` | development: `http://localhost:5173,http://localhost:5180`. production: **won't start** |
 | `ALLOW_DEV_LOGIN` | `true` shows a Dev login button for local testing | off. `true` **won't start** unless `NODE_ENV` is development/test **and** `MONGODB_URI` is empty |
 | `TRUST_PROXY` | Number of proxies in front of the server: `1` on Render or Railway, `2` with Cloudflare in front | development: none. production: **won't start** unless it is a whole number of 1 or more (`true` is never allowed) |
+| `BOOKING_DETAILS_KEEP_DAYS` | Booking details are deleted from slots dated more than this many days ago (checked at start and daily). 1 to 365. The Policies page promises 30: change both together. | 30 |
 | `STORAGE_DRIVER` | Where photos go: `local` (`backend/uploads/`). Cloudinary comes at deploy. | `local` |
 
 Make a session secret with:
@@ -169,7 +173,8 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 | **Rate limits** (`express-rate-limit`) | `middleware/rateLimits.js`, `routes/publicRoutes.js` | 10 sign-in attempts per 15 minutes per IP, 600 admin requests per 15 minutes, 120 public reads per minute (the health check is not limited). `TRUST_PROXY` (a number, never `true`) makes them see the real IP behind a host's proxy. |
 | **60-second public cache** | `services/publicCache.js` | Months, each month's slots and the designs are remembered for a minute, so a flood of visitors costs one database read a minute (a free Atlas tier is small). Every admin change clears it, so her changes show at once. Browsers are not told to cache these answers. |
 | **`Cache-Control: no-store`** and `X-Robots-Tag: noindex` on admin answers | `middleware/noStore.js` | Admin data is never kept in a browser or shared cache, or listed by search engines. The admin pages also add `<meta name="robots" content="noindex">`. |
-| **Short, generic errors** | `middleware/errorHandler.js` | Visitors never see stack traces. The log notes only the method, path and message, never cookies, tokens or request bodies. |
+| **Short, generic errors** | `middleware/errorHandler.js` | Visitors never see stack traces. The log notes only the method, path and message, never cookies, tokens or request bodies. For database validation errors only the kind of error is logged, because their message can quote a value (e.g. a name). |
+| **Booking details stay private** | `controllers/publicController.js`, `adminSlotController.js`, `services/bookingCleanup.js` | The public slot answer is built field by field (date, time, status, special) and never includes `booking`; tests check this, including right after an admin change. Details are checked field by field (`cleanBooking` in `validate.js`), unknown fields are refused, and they are deleted 30 days after the appointment. |
 | **Unsafe settings stop the server** | `config.js` | e.g. a `SESSION_SECRET` under 32 characters, or a production server with no secret, database, admin email, client ID or allowed origins. |
 
 `pnpm audit` (18 Nov 2026): the packages the live server uses have **no known
@@ -258,6 +263,10 @@ From the security review of 18 Nov 2026. Tick every box before the site takes re
       read and write only the live database.
 - [ ] Turn on Atlas alerts (connections, operations) so a flood is noticed.
 
+**Privacy**
+- [ ] Re-read the Privacy notice on the Policies page: it must still match what the site
+      stores (booking details, who sees them, deleted after `BOOKING_DETAILS_KEEP_DAYS` days).
+
 **After deploy, a 5-minute smoke test**
 - [ ] `/admin/login` shows **no** "Dev login" button, and
       `curl -X POST https://<site>/api/admin/session/dev -H "Origin: https://<site>"`
@@ -300,6 +309,25 @@ Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
 - In Express with helmet this is `helmet({ contentSecurityPolicy: { directives: { ... } },
   crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }, referrerPolicy: { policy:
   'strict-origin-when-cross-origin' } })`, used only for the static pages.
+
+### Booking details (personal data)
+
+What is held: on a booked or on-hold slot, she may note (all optional) the customer's name or
+Instagram name (up to 40 characters), the service, the design (a number or "own"), add-ons,
+the price, and a short note (up to 200 characters). Nothing else: unknown fields are refused,
+and the admin page reminds her to keep allergy or health information in her DMs.
+
+Who can see it: only her, signed in to the admin pages. The public `/api/slots` answer never
+contains it (built field by field in `publicController.js`, checked by tests). Admin answers
+are `no-store`. The values are never logged.
+
+How long: `services/bookingCleanup.js` deletes the details from every slot dated more than
+`BOOKING_DETAILS_KEEP_DAYS` (30) days ago, when the server starts and once a day. The slot
+itself stays. A database backup (e.g. Atlas snapshots) may hold them a little longer.
+
+Customers' rights (Singapore PDPA): the Policies page says what is kept, that it is deleted
+30 days after the appointment, and to DM her to see, correct or delete it. She can do that
+herself in the slot's details sheet ("Clear details").
 
 ### If her phone is lost (signing out every device)
 

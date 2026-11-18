@@ -21,3 +21,10 @@ export function addMonths(month, count) {
   const newMonth = (total % 12) + 1
   return `${newYear}-${String(newMonth).padStart(2, '0')}`
 }
+
+// '2026-12-12' plus a number of days (negative = earlier), e.g. addDays('2026-12-30', 3)
+// -> '2027-01-02'. Works on the calendar date only, so time zones do not matter.
+export function addDays(date, count) {
+  const [year, month, day] = date.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day + count)).toISOString().slice(0, 10)
+}

@@ -14,7 +14,12 @@ export function errorHandler(error, req, res, next) {
   if (status < 400 || status > 599) status = 500
 
   if (status >= 500) {
-    console.error(`[error] ${req.method} ${req.path}: ${error.message}`)
+    // Database validation messages can quote the value that failed (e.g. a customer's
+    // name), so for those only the kind of error is logged.
+    const detail = ['ValidationError', 'CastError', 'StrictModeError'].includes(error.name)
+      ? error.name
+      : error.message
+    console.error(`[error] ${req.method} ${req.path}: ${detail}`)
     return res.status(500).json({ error: 'Something went wrong. Please try again.' })
   }
 
