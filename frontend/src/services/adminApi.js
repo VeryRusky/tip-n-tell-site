@@ -82,6 +82,45 @@ export async function removeSlot(id) {
   await admin.delete(`/slots/${id}`)
 }
 
+// The server takes at most 100 slots per request, so bigger jobs are sent in parts.
+const SLOTS_PER_REQUEST = 100
+
+function inParts(list) {
+  const parts = []
+  for (let i = 0; i < list.length; i += SLOTS_PER_REQUEST) {
+    parts.push(list.slice(i, i + SLOTS_PER_REQUEST))
+  }
+  return parts
+}
+
+// Removes several slots. Returns the removed slots as they were (for Undo).
+export async function removeSlots(ids) {
+  const removed = []
+  for (const part of inParts(ids)) {
+    removed.push(...(await admin.post('/slots/remove', { ids: part })).data.removed)
+  }
+  return removed
+}
+
+// Puts removed slots back with the same status and special (Undo).
+// slots: [{ date, time, status, special }]. Returns { created: [slots], skipped: number }.
+export async function restoreSlots(slots) {
+  const result = { created: [], skipped: 0 }
+  for (const part of inParts(slots)) {
+    // Only these four values are sent (not the old id).
+    const body = part.map((slot) => ({
+      date: slot.date,
+      time: slot.time,
+      status: slot.status,
+      special: slot.special,
+    }))
+    const data = (await admin.post('/slots/restore', { slots: body })).data
+    result.created.push(...data.created)
+    result.skipped += data.skipped
+  }
+  return result
+}
+
 // ---- Designs ----
 
 // Every design, hidden ones included. Each: { id, number, name, image, colors, hidden, order }

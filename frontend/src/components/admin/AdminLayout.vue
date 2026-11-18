@@ -1,16 +1,23 @@
 <script setup>
+import { onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAdminStore } from '@/stores/admin'
+import { useAdminToastStore } from '@/stores/adminToast'
 import BrandWordmark from '@/components/BrandWordmark.vue'
+import AdminToasts from './AdminToasts.vue'
+import '@/assets/admin.css'
 
-// The frame around the owner's admin pages: a simple header with the brand,
-// the two pages (Calendar, Designs) and Sign out. Calm on purpose: no animations.
+// The frame around the owner's admin pages: the brand, a link to the public site, who is
+// signed in, Sign out, and the two pages (Calendar, Designs). Calm on purpose.
+// Pages put their main button next to the title with <template #actions>.
 defineProps({
   title: { type: String, required: true },
 })
 
 const router = useRouter()
 const admin = useAdminStore()
+const toast = useAdminToastStore()
+const siteHome = import.meta.env.BASE_URL // the public home page
 
 async function signOut() {
   try {
@@ -20,55 +27,92 @@ async function signOut() {
   }
   router.push({ name: 'admin-login' })
 }
+
+// A message (and its Undo) belongs to the page it came from.
+onBeforeUnmount(toast.clear)
 </script>
 
 <template>
-  <header class="admin-header">
-    <div class="container-lg">
-      <div class="d-flex align-items-center justify-content-between gap-2 py-2">
-        <div class="d-flex align-items-center gap-2">
-          <BrandWordmark size="small" />
-          <span class="admin-badge">Admin</span>
+  <div class="tt-admin admin-shell">
+    <header class="admin-header">
+      <div class="container-lg">
+        <div class="header-row">
+          <div class="d-flex align-items-center gap-2">
+            <BrandWordmark size="small" />
+            <span class="admin-badge">Admin</span>
+          </div>
+          <a class="view-site" :href="siteHome" target="_blank" rel="noopener">
+            View site <span aria-hidden="true">↗</span>
+            <span class="visually-hidden">(opens in a new tab)</span>
+          </a>
         </div>
-        <button type="button" class="btn btn-outline-primary btn-sm" @click="signOut">
-          Sign out
-        </button>
+        <div class="account-row">
+          <p class="account-email">
+            <span class="visually-hidden">Signed in as </span>{{ admin.email }}
+          </p>
+          <button type="button" class="btn btn-outline-primary btn-sm" @click="signOut">
+            Sign out
+          </button>
+        </div>
+        <nav aria-label="Admin pages">
+          <ul class="admin-tabs">
+            <li>
+              <RouterLink
+                :to="{ name: 'admin-calendar' }"
+                class="admin-tab"
+                exact-active-class="active"
+              >
+                Calendar
+              </RouterLink>
+            </li>
+            <li>
+              <RouterLink
+                :to="{ name: 'admin-designs' }"
+                class="admin-tab"
+                exact-active-class="active"
+              >
+                Designs
+              </RouterLink>
+            </li>
+          </ul>
+        </nav>
       </div>
-      <nav aria-label="Admin pages">
-        <ul class="admin-tabs">
-          <li>
-            <RouterLink
-              :to="{ name: 'admin-calendar' }"
-              class="admin-tab"
-              exact-active-class="active"
-            >
-              Calendar
-            </RouterLink>
-          </li>
-          <li>
-            <RouterLink
-              :to="{ name: 'admin-designs' }"
-              class="admin-tab"
-              exact-active-class="active"
-            >
-              Designs
-            </RouterLink>
-          </li>
-        </ul>
-      </nav>
-    </div>
-  </header>
+    </header>
 
-  <main id="main" class="container-lg admin-main">
-    <h1 class="admin-title">{{ title }}</h1>
-    <slot />
-  </main>
+    <main id="main" class="container-lg admin-main">
+      <div class="title-row">
+        <h1 id="admin-title" class="admin-title" tabindex="-1">{{ title }}</h1>
+        <div v-if="$slots.actions" class="title-actions">
+          <slot name="actions" />
+        </div>
+      </div>
+      <slot />
+    </main>
+
+    <AdminToasts />
+  </div>
 </template>
 
 <style scoped>
+.admin-shell {
+  flex: 1 0 auto;
+}
+
 .admin-header {
   background: var(--tt-white);
   border-bottom: 1px solid var(--tt-line);
+}
+
+.header-row,
+.account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.header-row {
+  padding-top: 0.5rem;
 }
 
 .admin-badge {
@@ -82,9 +126,28 @@ async function signOut() {
   padding: 0.15rem 0.6rem;
 }
 
+.view-site {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 44px;
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+.account-email {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  color: var(--tt-muted);
+}
+
 .admin-tabs {
   list-style: none;
-  margin: 0;
+  margin: 0.25rem 0 0;
   padding: 0;
   display: flex;
   gap: 0.25rem;
@@ -113,12 +176,32 @@ async function signOut() {
 
 .admin-main {
   padding-top: 1rem;
-  padding-bottom: 7rem; /* room for the bottom bar and messages */
+  padding-bottom: 8rem; /* room for a bottom bar and messages */
+}
+
+.title-row {
+  min-height: 48px; /* the same height with or without a button, so nothing jumps */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .admin-title {
   font-size: 1.6rem;
-  margin-bottom: 0.75rem;
+  margin: 0;
+}
+
+.admin-title:focus {
+  outline: none;
+}
+
+.title-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 @media (min-width: 768px) {
@@ -129,14 +212,40 @@ async function signOut() {
   .admin-tabs li {
     flex: 0 0 9rem;
   }
-}
-</style>
 
-<style>
-/* Admin pages only: disabled outline buttons in the brand colours (Bootstrap's default is blue). */
-.admin-main .btn-outline-primary {
-  --bs-btn-disabled-color: #9d8588;
-  --bs-btn-disabled-border-color: var(--tt-line);
-  --bs-btn-disabled-bg: transparent;
+  /* One row on a laptop: brand, then email, Sign out and View site on the right. */
+  .admin-header .container-lg {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      'brand account site'
+      'tabs tabs tabs';
+    align-items: center;
+    column-gap: 1rem;
+  }
+
+  .header-row {
+    display: contents;
+  }
+
+  .header-row > :first-child {
+    grid-area: brand;
+    padding-top: 0.5rem;
+  }
+
+  .view-site {
+    grid-area: site;
+    padding-top: 0.5rem;
+  }
+
+  .account-row {
+    grid-area: account;
+    justify-content: flex-end;
+    padding-top: 0.5rem;
+  }
+
+  nav {
+    grid-area: tabs;
+  }
 }
 </style>

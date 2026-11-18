@@ -1,72 +1,99 @@
 <script setup>
-import { ref, useId } from 'vue'
-import { site } from '@/config/site'
-import { formatTime } from '@/utils/format'
+import { ref, onMounted, onBeforeUnmount, useId } from 'vue'
+import { plural } from '@/utils/adminSlots'
 
-// The bar pinned to the bottom in "Select days" mode: which of her usual times to open,
-// whether they are special, and one button to open them on every picked day.
+// The actions for the days picked in "Select days" mode:
+//   Open times · Remove open times · Remove all times, plus Clear selection and Done.
+// On a phone it is pinned to the bottom of the screen (`docked`); on a laptop it sits in the
+// right-hand column. The picked days stay picked after an action, so she can do another.
 const props = defineProps({
   count: { type: Number, required: true }, // how many days are picked
-  busy: { type: Boolean, default: false },
+  openCount: { type: Number, default: 0 }, // open times on those days
+  totalCount: { type: Number, default: 0 }, // all times on those days
+  working: { type: String, default: '' }, // which action is saving
+  docked: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['open', 'cancel'])
+const emit = defineEmits(['open-times', 'remove-open', 'remove-all', 'clear', 'done'])
 
 const id = useId()
-const times = ref([...site.usualTimes]) // all usual times ticked to start with
-const special = ref(false)
+const bar = ref(null)
 
-function open() {
-  if (props.count === 0 || times.value.length === 0) return
-  emit('open', { times: [...times.value].sort(), special: special.value })
+// While pinned, tell the page how tall the bar is, so messages sit just above it.
+let watcher = null
+function setBarHeight(height) {
+  document.documentElement.style.setProperty('--admin-bar-height', `${height}px`)
 }
+
+onMounted(() => {
+  if (!props.docked || !bar.value) return
+  setBarHeight(bar.value.offsetHeight)
+  if (window.ResizeObserver) {
+    watcher = new ResizeObserver(() => setBarHeight(bar.value?.offsetHeight ?? 0))
+    watcher.observe(bar.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  watcher?.disconnect()
+  document.documentElement.style.removeProperty('--admin-bar-height')
+})
 </script>
 
 <template>
-  <section class="bulk-bar" :aria-labelledby="`${id}-title`">
-    <div class="container-lg">
-      <h2 :id="`${id}-title`" class="bulk-title">
-        {{
-          count === 0 ? 'Tap the days to open' : `${count} ${count === 1 ? 'day' : 'days'} picked`
-        }}
-      </h2>
-      <fieldset class="mb-2">
-        <legend class="visually-hidden">Times to open on each picked day</legend>
-        <div class="d-flex flex-wrap gap-2">
-          <template v-for="time in site.usualTimes" :key="time">
-            <input
-              :id="`${id}-${time}`"
-              v-model="times"
-              type="checkbox"
-              class="btn-check"
-              :value="time"
-            />
-            <label class="btn btn-outline-primary btn-sm time-toggle" :for="`${id}-${time}`">
-              {{ formatTime(time) }}
-            </label>
-          </template>
-          <div class="form-check form-switch ms-1">
-            <input
-              :id="`${id}-special`"
-              v-model="special"
-              class="form-check-input"
-              type="checkbox"
-              role="switch"
-            />
-            <label class="form-check-label" :for="`${id}-special`">Special (+fee)</label>
-          </div>
+  <section ref="bar" class="bulk-bar" :class="{ docked }" :aria-labelledby="`${id}-title`">
+    <div :class="{ 'container-lg': docked }">
+      <div class="bulk-top">
+        <h2 :id="`${id}-title`" class="bulk-title" aria-live="polite">
+          {{ count === 0 ? 'No days selected' : `${plural(count, 'day')} selected` }}
+        </h2>
+        <div class="d-flex gap-2">
+          <button
+            type="button"
+            class="btn btn-link btn-sm clear-button"
+            :disabled="count === 0"
+            @click="emit('clear')"
+          >
+            Clear selection
+          </button>
+          <button type="button" class="btn btn-outline-primary btn-sm" @click="emit('done')">
+            Done
+          </button>
         </div>
-      </fieldset>
-      <div class="d-flex gap-2">
+      </div>
+
+      <div class="bulk-actions">
         <button
           type="button"
-          class="btn btn-primary flex-grow-1"
-          :disabled="busy || count === 0 || times.length === 0"
-          @click="open"
+          class="btn btn-primary"
+          :disabled="count === 0 || working !== ''"
+          :aria-busy="working === 'bulk-open'"
+          @click="emit('open-times')"
         >
-          {{ busy ? 'Opening…' : 'Open these times' }}
+          {{ working === 'bulk-open' ? 'Opening…' : 'Open times' }}
         </button>
-        <button type="button" class="btn btn-outline-primary" @click="emit('cancel')">Done</button>
+        <button
+          type="button"
+          class="btn btn-outline-primary"
+          :disabled="openCount === 0 || working !== ''"
+          :aria-busy="working === 'bulk-remove-open'"
+          @click="emit('remove-open')"
+        >
+          <template v-if="working === 'bulk-remove-open'">Removing…</template>
+          <template v-else>Remove open<span class="wide-only"> times</span></template>
+          <span v-if="openCount" class="count">({{ openCount }})</span>
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-danger"
+          :disabled="totalCount === 0 || working !== ''"
+          :aria-busy="working === 'bulk-remove-all'"
+          @click="emit('remove-all')"
+        >
+          <template v-if="working === 'bulk-remove-all'">Removing…</template>
+          <template v-else>Remove all<span class="wide-only"> times</span></template>
+          <span v-if="totalCount" class="count">({{ totalCount }})</span>
+        </button>
       </div>
     </div>
   </section>
@@ -74,56 +101,93 @@ function open() {
 
 <style scoped>
 .bulk-bar {
+  background: var(--tt-white);
+  border: 1px solid var(--tt-line);
+  border-radius: var(--tt-radius);
+  padding: 0.75rem;
+}
+
+/* On a phone: pinned to the bottom, full width. */
+.bulk-bar.docked {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 1040;
-  background: var(--tt-white);
-  border-top: 1px solid var(--tt-line);
+  border-width: 1px 0 0;
+  border-radius: 0;
   box-shadow: 0 -10px 24px -18px rgba(26, 26, 26, 0.5);
-  padding: 0.75rem 0 calc(0.75rem + env(safe-area-inset-bottom));
+  padding: 0.6rem 0 calc(0.6rem + env(safe-area-inset-bottom));
 }
 
-.bulk-title {
-  font-family: var(--tt-font-body);
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--tt-ink);
+.bulk-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   margin-bottom: 0.5rem;
 }
 
-.time-toggle {
-  min-height: 44px;
-  min-width: 4.5rem;
+.bulk-title {
+  margin: 0;
+  white-space: nowrap;
+  font-family: var(--tt-font-body);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--tt-ink);
 }
 
-.btn-check:checked + .time-toggle {
-  background: var(--tt-deep-rose);
-  border-color: var(--tt-deep-rose);
-  color: #fff;
+.clear-button {
+  white-space: nowrap;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  color: var(--tt-deep-rose);
 }
 
-.btn-check:focus-visible + .time-toggle {
-  outline: 3px solid var(--tt-ink);
-  outline-offset: 2px;
+.clear-button:disabled {
+  color: #9d8588;
 }
 
-.form-switch {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 44px;
+.bulk-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
 }
 
-.form-switch .form-check-input {
-  width: 2.6em;
-  height: 1.4em;
-  margin-top: 0;
+.bulk-actions .btn {
+  padding-left: 0.4rem;
+  padding-right: 0.4rem;
+  font-size: 0.88rem;
+  line-height: 1.15;
+  flex-direction: column;
+  white-space: normal;
 }
 
-.form-check-input:checked {
-  background-color: var(--tt-deep-rose);
-  border-color: var(--tt-deep-rose);
+/* On a narrow phone the word "times" is only read out, not shown, to keep the bar short. */
+@media (max-width: 575.98px) {
+  .docked .wide-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+.count {
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+/* A laptop's column is roomier: one action per line. */
+.bulk-bar:not(.docked) .bulk-actions {
+  grid-template-columns: 1fr;
+}
+
+.bulk-bar:not(.docked) .bulk-actions .btn {
+  flex-direction: row;
+  gap: 0.3rem;
+  font-size: 1rem;
 }
 </style>

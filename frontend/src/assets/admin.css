@@ -1,0 +1,186 @@
+/*
+  Styles shared by the owner's admin pages only (AdminLayout.vue imports this file, so the
+  public site never downloads it). Everything sits under .tt-admin: the page itself, and the
+  sheets and messages that are placed at the end of <body>.
+*/
+.tt-admin {
+  /* Status colours. Each status also has its own shape, so colour is never the only clue. */
+  --tt-open: var(--tt-deep-rose); /* open: hollow ring */
+  --tt-hold: #8a5300; /* on hold: half-filled circle, amber-brown (5.6:1 on white) */
+  --tt-booked: var(--tt-ink); /* booked: filled square */
+  --tt-hold-bg: #fdf0d8;
+
+  /* Danger: removing or deleting things that matter. */
+  --tt-danger: #8a1c2b;
+  --tt-danger-dark: #6c1420;
+  --tt-danger-bg: #fbe3e5;
+}
+
+/* Disabled outline buttons in the brand colours (Bootstrap's default is blue). */
+.tt-admin .btn-outline-primary {
+  --bs-btn-disabled-color: #9d8588;
+  --bs-btn-disabled-border-color: var(--tt-line);
+  --bs-btn-disabled-bg: transparent;
+}
+
+/* Small buttons stay at least 44px tall: she taps them with a finger. */
+.tt-admin .btn-sm {
+  min-height: 44px;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* Danger buttons: dark red, used only for removing booked times and deleting designs. */
+.tt-admin .btn-danger {
+  --bs-btn-bg: var(--tt-danger);
+  --bs-btn-border-color: var(--tt-danger);
+  --bs-btn-color: #fff;
+  --bs-btn-hover-bg: var(--tt-danger-dark);
+  --bs-btn-hover-border-color: var(--tt-danger-dark);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-active-bg: var(--tt-danger-dark);
+  --bs-btn-active-border-color: var(--tt-danger-dark);
+  --bs-btn-disabled-bg: #c49aa0;
+  --bs-btn-disabled-border-color: #c49aa0;
+  --bs-btn-disabled-opacity: 1;
+}
+
+.tt-admin .btn-outline-danger {
+  --bs-btn-color: var(--tt-danger);
+  --bs-btn-border-color: var(--tt-danger);
+  --bs-btn-bg: var(--tt-white);
+  --bs-btn-hover-bg: var(--tt-danger-bg);
+  --bs-btn-hover-color: var(--tt-danger-dark);
+  --bs-btn-hover-border-color: var(--tt-danger);
+  --bs-btn-active-bg: var(--tt-danger-bg);
+  --bs-btn-active-color: var(--tt-danger-dark);
+  --bs-btn-active-border-color: var(--tt-danger);
+  --bs-btn-disabled-color: #b48990;
+  --bs-btn-disabled-border-color: var(--tt-line);
+  --bs-btn-disabled-bg: transparent;
+}
+
+.tt-admin .btn-danger:focus-visible,
+.tt-admin .btn-outline-danger:focus-visible {
+  outline-color: var(--tt-danger);
+}
+
+/* A button that is busy (saving) shows it and cannot be tapped again. */
+.tt-admin .btn[aria-busy='true'] {
+  cursor: progress;
+}
+
+/* Brand-coloured switches and check boxes. */
+.tt-admin .form-check-input:checked {
+  background-color: var(--tt-deep-rose);
+  border-color: var(--tt-deep-rose);
+}
+
+.tt-admin .form-check-input:focus-visible {
+  outline: 3px solid var(--tt-deep-rose);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.tt-admin .form-control {
+  min-height: 48px;
+  border-color: var(--tt-line);
+}
+
+/* A short problem message under a field. */
+.tt-admin .field-problem {
+  color: var(--tt-danger);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+/* A box that explains a risky choice before she confirms it. */
+.tt-admin .danger-note {
+  background: var(--tt-danger-bg);
+  border: 1px solid var(--tt-danger);
+  border-radius: var(--tt-radius-small);
+  padding: 0.75rem;
+}
+
+/* While a sheet is open (AdminSheet.vue adds this class), messages show at the top of the
+   screen so they never cover the sheet's buttons. */
+body.admin-sheet-open .toast-holder {
+  bottom: auto;
+  top: calc(0.75rem + env(safe-area-inset-top));
+}
+
+/* Less motion when her phone asks for it. */
+@media (prefers-reduced-motion: reduce) {
+  .tt-admin *,
+  .tt-admin *::before,
+  .tt-admin *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/*
+  The mark for a slot's status, used in the calendar, its key and the "Coming up" list.
+  Colour AND shape differ, so the status is clear without colour too:
+    open = hollow ring, on hold = half-filled circle, booked = filled square.
+*/
+.tt-admin .status-mark {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+}
+
+.tt-admin .status-mark.is-open {
+  border: 2px solid var(--tt-open);
+  border-radius: 50%;
+}
+
+.tt-admin .status-mark.is-pending {
+  border: 2px solid var(--tt-hold);
+  border-radius: 50%;
+  background: linear-gradient(90deg, var(--tt-hold) 50%, transparent 50%);
+}
+
+.tt-admin .status-mark.is-booked {
+  background: var(--tt-booked);
+  border-radius: 2px;
+}
+
+/* On a dark or coloured background (a picked or fully booked day) the marks turn white. */
+.tt-admin .on-dark .status-mark.is-open,
+.tt-admin .on-dark .status-mark.is-pending {
+  border-color: #fff;
+}
+
+.tt-admin .on-dark .status-mark.is-pending {
+  background: linear-gradient(90deg, #fff 50%, transparent 50%);
+}
+
+.tt-admin .on-dark .status-mark.is-booked {
+  background: #fff;
+}
+
+/* A status written as a small label with its mark, e.g. in the "Coming up" list. */
+.tt-admin .status-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.tt-admin .status-label.is-open {
+  color: var(--tt-open);
+}
+
+.tt-admin .status-label.is-pending {
+  color: var(--tt-hold);
+}
+
+.tt-admin .status-label.is-booked {
+  color: var(--tt-booked);
+}
