@@ -36,6 +36,8 @@ export function createAdminRouter(config) {
   const slots = express.Router()
   slots.get('/', slotController.listMonth)
   slots.post('/', slotController.createMany)
+  slots.post('/remove', slotController.removeMany) // several at once
+  slots.post('/restore', slotController.restoreMany) // Undo after a remove
   slots.patch('/:id', slotController.update)
   slots.delete('/:id', slotController.remove)
   router.use('/slots', requireAdmin, slots)

@@ -111,6 +111,8 @@ All addresses start with `/api`. "Today" is always worked out in Singapore time.
 | `POST /slots` | Body `{ dates: [...], times: [...], special }`. Opens every time on every date; ones that already exist are skipped. |
 | `PATCH /slots/:id` | Body `{ status }` and/or `{ special }` |
 | `DELETE /slots/:id` | Remove a slot |
+| `POST /slots/remove` | Body `{ ids: [...] }` (1 to 100 slot ids). Removes them and answers `{ removed: [the slots as they were], missing }`. Ids already gone are skipped. |
+| `POST /slots/restore` | Body `{ slots: [{ date, time, status, special }, ...] }` (1 to 100). The Undo button: puts removed slots back with the same status and special. Today up to 12 months ahead only; a day and time that already has a slot is skipped, never overwritten. Answers `{ created, skipped }`. |
 | `GET /designs` | Every design, hidden ones too |
 | `POST /designs` | Form upload: `name` + `image`. New designs go first. |
 | `PATCH /designs/:id` | Body `{ name }` and/or `{ hidden }` |

@@ -172,3 +172,168 @@ describe('public slots', () => {
     expect(response.text).not.toMatch(/at .*\.js/) // no stack trace
   })
 })
+
+describe('removing several slots and Undo', () => {
+  // Requests as the signed-in owner.
+  function removeSlots(body, origin = ORIGIN) {
+    return agent.post('/api/admin/slots/remove').set('Origin', origin).send(body)
+  }
+  function restoreSlots(body, origin = ORIGIN) {
+    return agent.post('/api/admin/slots/restore').set('Origin', origin).send(body)
+  }
+  // A well-formed id that is not in the database.
+  const UNKNOWN_ID = '0123456789abcdef01234567'
+  // Only the values a slot keeps, without its id.
+  const values = ({ date, time, status, special }) => ({ date, time, status, special })
+
+  it('removes the chosen slots and answers with them as they were', async () => {
+    const day = dateFromToday(3)
+    const [open, booked, other] = await Slot.create([
+      { date: day, time: '10:00' },
+      { date: day, time: '14:00', status: 'booked', special: true },
+      { date: day, time: '16:00' },
+    ])
+
+    const response = await removeSlots({ ids: [String(open._id), String(booked._id)] })
+
+    expect(response.status).toBe(200)
+    expect(response.body.removed).toEqual([
+      { id: String(open._id), date: day, time: '10:00', status: 'open', special: false },
+      { id: String(booked._id), date: day, time: '14:00', status: 'booked', special: true },
+    ])
+    expect(response.body.missing).toBe(0)
+    expect((await Slot.find()).map((slot) => String(slot._id))).toEqual([String(other._id)])
+  })
+
+  it('skips ids that are already gone', async () => {
+    const slot = await Slot.create({ date: dateFromToday(3), time: '10:00' })
+    const response = await removeSlots({ ids: [String(slot._id), UNKNOWN_ID] })
+    expect(response.status).toBe(200)
+    expect(response.body.removed).toHaveLength(1)
+    expect(response.body.missing).toBe(1)
+  })
+
+  it('puts removed slots back with the same day, time, status and special (Undo)', async () => {
+    const day = dateFromToday(4)
+    const slots = await Slot.create([
+      { date: day, time: '10:00', status: 'pending' },
+      { date: day, time: '14:00', status: 'booked', special: true },
+    ])
+    const removed = await removeSlots({ ids: slots.map((slot) => String(slot._id)) })
+    expect(await Slot.countDocuments()).toBe(0)
+
+    const restored = await restoreSlots({ slots: removed.body.removed })
+
+    expect(restored.status).toBe(201)
+    expect(restored.body.skipped).toBe(0)
+    const after = await Slot.find().sort({ time: 1 }).lean()
+    expect(after.map(values)).toEqual([
+      { date: day, time: '10:00', status: 'pending', special: false },
+      { date: day, time: '14:00', status: 'booked', special: true },
+    ])
+    expect(restored.body.created.map(values)).toEqual(after.map(values))
+  })
+
+  it('skips a slot that exists again instead of overwriting it', async () => {
+    const day = dateFromToday(5)
+    await Slot.create({ date: day, time: '10:00', status: 'booked' })
+
+    const response = await restoreSlots({
+      slots: [
+        { date: day, time: '10:00', status: 'open', special: false },
+        { date: day, time: '14:00', status: 'open', special: false },
+        { date: day, time: '14:00', status: 'open', special: false }, // listed twice
+      ],
+    })
+
+    expect(response.status).toBe(201)
+    expect(response.body.created).toHaveLength(1)
+    expect(response.body.skipped).toBe(2)
+    expect((await Slot.findOne({ date: day, time: '10:00' })).status).toBe('booked')
+    expect(await Slot.countDocuments()).toBe(2)
+  })
+
+  it('shows removed and restored slots on the very next public read', async () => {
+    const day = dateFromToday(2)
+    const slot = await Slot.create({ date: day, time: '10:00' })
+    const publicTimes = async () => {
+      const response = await request(app).get(`/api/slots?month=${day.slice(0, 7)}`)
+      return response.body.map((s) => s.id)
+    }
+
+    expect(await publicTimes()).toContain(`${day}T10:00`) // now remembered for a minute
+    const removed = await removeSlots({ ids: [String(slot._id)] })
+    expect(await publicTimes()).not.toContain(`${day}T10:00`)
+    await restoreSlots({ slots: removed.body.removed })
+    expect(await publicTimes()).toContain(`${day}T10:00`)
+  })
+
+  it('refuses both when sent from another website', async () => {
+    const slot = await Slot.create({ date: dateFromToday(2), time: '10:00' })
+    const evil = 'https://evil.example'
+    const remove = await removeSlots({ ids: [String(slot._id)] }, evil)
+    const restore = await restoreSlots(
+      { slots: [{ date: dateFromToday(2), time: '14:00', status: 'open', special: false }] },
+      evil,
+    )
+    expect(remove.status).toBe(403)
+    expect(restore.status).toBe(403)
+    expect(await Slot.countDocuments()).toBe(1)
+  })
+
+  it.each([
+    ['no list', {}],
+    ['an empty list', { ids: [] }],
+    ['ids that are not a list', { ids: UNKNOWN_ID }],
+    ['an id that is not a database id', { ids: ['not-an-id'] }],
+    ['a query operator as an id', { ids: [{ $ne: '' }] }],
+    ['more than 100 ids', { ids: Array(101).fill(UNKNOWN_ID) }],
+  ])('rejects removing with %s (400)', async (label, body) => {
+    const slot = await Slot.create({ date: dateFromToday(2), time: '10:00' })
+    const response = await removeSlots(body)
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBeTruthy()
+    expect(await Slot.findById(slot._id)).not.toBeNull()
+  })
+
+  // A slot that may be restored, to change one value at a time.
+  const good = () => ({ date: dateFromToday(6), time: '10:00', status: 'open', special: false })
+
+  it.each([
+    ['no list', () => ({})],
+    ['an empty list', () => ({ slots: [] })],
+    ['slots that are not a list', () => ({ slots: good() })],
+    ['a slot that is not an object', () => ({ slots: ['2099-01-01T10:00'] })],
+    ['a bad date', () => ({ slots: [{ ...good(), date: '2026-02-31' }] })],
+    ['a bad time', () => ({ slots: [{ ...good(), time: '2pm' }] })],
+    ['an unknown status', () => ({ slots: [{ ...good(), status: 'cancelled' }] })],
+    ['a query operator as the status', () => ({ slots: [{ ...good(), status: { $ne: '' } }] })],
+    ['special that is not true or false', () => ({ slots: [{ ...good(), special: 'yes' }] })],
+    ['no special at all', () => ({ slots: [{ ...good(), special: undefined }] })],
+    ['a day in the past', () => ({ slots: [{ ...good(), date: dateFromToday(-1) }] })],
+    ['a day over 12 months ahead', () => ({ slots: [{ ...good(), date: dateFromToday(400) }] })],
+    ['more than 100 slots', () => ({ slots: Array(101).fill(good()) })],
+  ])('rejects restoring %s (400)', async (label, makeBody) => {
+    const response = await restoreSlots(makeBody())
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBeTruthy()
+    expect(await Slot.countDocuments()).toBe(0)
+  })
+
+  it('stores only the four slot values, whatever else is sent', async () => {
+    const response = await restoreSlots({
+      slots: [{ ...good(), id: UNKNOWN_ID, _id: UNKNOWN_ID, name: 'A customer', note: 'hi' }],
+    })
+    expect(response.status).toBe(201)
+    const stored = await Slot.findOne().lean()
+    expect(String(stored._id)).not.toBe(UNKNOWN_ID)
+    expect(Object.keys(stored).sort()).toEqual(['__v', '_id', 'date', 'special', 'status', 'time'])
+  })
+
+  it('keeps the single-slot routes working alongside', async () => {
+    const slot = await Slot.create({ date: dateFromToday(2), time: '10:00' })
+    await agent.delete(`/api/admin/slots/${slot._id}`).set('Origin', ORIGIN).expect(204)
+    const removed = await removeSlots({ ids: [String(slot._id)] })
+    expect(removed.body).toEqual({ removed: [], missing: 1 })
+  })
+})

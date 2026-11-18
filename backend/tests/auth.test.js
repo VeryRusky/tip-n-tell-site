@@ -33,6 +33,8 @@ function sessionCookie(response) {
 const ADMIN_ROUTES = [
   ['get', '/api/admin/slots?month=2026-12'],
   ['post', '/api/admin/slots'],
+  ['post', '/api/admin/slots/remove'],
+  ['post', '/api/admin/slots/restore'],
   ['patch', `/api/admin/slots/${ID}`],
   ['delete', `/api/admin/slots/${ID}`],
   ['get', '/api/admin/designs'],
