@@ -77,6 +77,8 @@ export const useAdminToastStore = defineStore('adminToast', () => {
     failed: (text) => show('error', text, 10000),
     // e.g. done('Removed 9 times', undoFunction): shows an Undo button for 8 seconds.
     done: (text, undo) => show('saved', text, 8000, { label: 'Undo', run: undo }),
+    // e.g. savedWith('Saved: 2pm booked', 'Add details', openDetails): a shortcut button.
+    savedWith: (text, label, run) => show('saved', text, 8000, { label, run }),
     clear,
     pause,
     resume,

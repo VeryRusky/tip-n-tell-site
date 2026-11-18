@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch, nextTick, onBeforeUnmount, useId } from 'vue'
+import { lockPage, unlockPage } from '@/utils/pageLock'
 
 // A panel that opens over the page: a sheet sliding up from the bottom on a phone,
 // a dialog in the middle of a laptop screen. Used for a day's times, choosing times to
@@ -22,16 +23,9 @@ let returnFocusTo = null
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
-function setPageBehindInert(inert) {
-  const page = document.getElementById('app')
-  if (page) page.inert = inert
-  document.body.style.overflow = inert ? 'hidden' : ''
-  document.body.classList.toggle('admin-sheet-open', inert) // messages move to the top
-}
-
 async function whenOpened() {
   returnFocusTo = document.activeElement
-  setPageBehindInert(true)
+  lockPage()
   await nextTick()
   // Focus a field marked data-autofocus if there is one, otherwise the panel itself.
   const first = panel.value?.querySelector('[data-autofocus]')
@@ -39,8 +33,12 @@ async function whenOpened() {
 }
 
 function whenClosed() {
-  setPageBehindInert(false)
+  unlockPage()
+  // Back to where she was. If that button has gone (e.g. "Add details" became the summary),
+  // to the sheet underneath, if there is one.
   if (returnFocusTo?.isConnected) returnFocusTo.focus()
+  else
+    [...document.querySelectorAll('.sheet-panel')].find((other) => other !== panel.value)?.focus()
   returnFocusTo = null
 }
 

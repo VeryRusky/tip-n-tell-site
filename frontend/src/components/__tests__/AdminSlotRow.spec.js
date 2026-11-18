@@ -84,6 +84,31 @@ describe('AdminSlotRow', () => {
     expect(wrapper.find('button[aria-label="Remove 2pm"]').exists()).toBe(true)
   })
 
+  it('offers "Add details" on a booked time that has none, and not on an open time', async () => {
+    const booked = mount(AdminSlotRow, { props: { timeSlot: makeSlot({ status: 'booked' }) } })
+    const open = mount(AdminSlotRow, { props: { timeSlot: makeSlot() } })
+
+    expect(open.text()).not.toContain('Add details')
+    await button(booked, 'Add details').trigger('click')
+    expect(booked.emitted('details')).toHaveLength(1)
+  })
+
+  it('shows who is coming and what for, and opens the details when tapped', async () => {
+    const catalog = {
+      services: [{ id: 'extensions', name: 'Extensions', price: 35 }],
+      designs: [{ number: 3, name: 'Cherry bows' }],
+    }
+    const booking = { customer: 'Mei', service: 'extensions', design: 3, price: 45 }
+    const wrapper = mount(AdminSlotRow, {
+      props: { timeSlot: makeSlot({ status: 'pending', booking }), catalog },
+    })
+
+    const summary = wrapper.find('.details-summary')
+    expect(summary.text()).toBe('Mei · Extensions · #3 Cherry bows · $45')
+    await summary.trigger('click')
+    expect(wrapper.emitted('details')).toHaveLength(1)
+  })
+
   it('has no Remove button on a day that has passed', () => {
     const wrapper = mount(AdminSlotRow, { props: { timeSlot: makeSlot(), canRemove: false } })
 

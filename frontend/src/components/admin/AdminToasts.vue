@@ -35,7 +35,9 @@ const toast = useAdminToastStore()
             :aria-busy="toast.actionBusy"
             @click="toast.runAction"
           >
-            {{ toast.actionBusy ? 'Undoing…' : toast.action.label }}
+            {{
+              toast.actionBusy && toast.action.label === 'Undo' ? 'Undoing…' : toast.action.label
+            }}
           </button>
           <button
             v-else-if="toast.kind === 'error'"

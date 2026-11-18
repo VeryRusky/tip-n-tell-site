@@ -15,10 +15,18 @@ const props = defineProps({
   slots: { type: Array, required: true }, // this day's slots, sorted by time
   today: { type: String, required: true },
   specialFee: { type: Number, default: 0 },
+  catalog: { type: Object, default: () => ({}) }, // services, add-ons and designs, for summaries
   working: { type: String, default: '' }, // which action is saving, e.g. 'open-usual'
 })
 
-const emit = defineEmits(['set-status', 'set-special', 'remove', 'add-times', 'close-day'])
+const emit = defineEmits([
+  'set-status',
+  'set-special',
+  'remove',
+  'add-times',
+  'close-day',
+  'details',
+])
 
 const id = useId()
 const adding = ref(false) // the "Add another time" box is open
@@ -193,10 +201,12 @@ function close(includeTaken) {
         :key="slot.id"
         :time-slot="slot"
         :special-fee="specialFee"
+        :catalog="catalog"
         :can-remove="!past"
         @set-status="emit('set-status', slot, $event)"
         @set-special="emit('set-special', slot, $event)"
         @remove="removeSlot(slot)"
+        @details="emit('details', slot)"
       />
     </ul>
 

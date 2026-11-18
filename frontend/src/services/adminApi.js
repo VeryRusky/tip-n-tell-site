@@ -73,7 +73,8 @@ export async function openSlots(dates, times, special = false) {
   return (await admin.post('/slots', { dates, times, special })).data
 }
 
-// changes: { status } and/or { special }. Returns the updated slot.
+// changes: { status }, { special } and/or { booking } (details, or null to clear them).
+// Returns the updated slot.
 export async function updateSlot(id, changes) {
   return (await admin.patch(`/slots/${id}`, changes)).data
 }
@@ -104,16 +105,38 @@ export async function removeSlots(ids) {
 
 // Puts removed slots back with the same status and special (Undo).
 // slots: [{ date, time, status, special }]. Returns { created: [slots], skipped: number }.
+// Booking details make a slot bigger, so restore requests are also kept under about 8 kB
+// (the server accepts at most 10 kB per request).
+const MAX_REQUEST_SIZE = 8000
+
 export async function restoreSlots(slots) {
+  // Only these values are sent (not the old id).
+  const toSend = slots.map((slot) => {
+    const copy = { date: slot.date, time: slot.time, status: slot.status, special: slot.special }
+    if (slot.booking) copy.booking = slot.booking
+    return copy
+  })
+  // Split into requests of at most 100 slots and about 8 kB each.
+  const parts = []
+  let part = []
+  let size = 0
+  for (const slot of toSend) {
+    const slotSize = JSON.stringify(slot).length + 1
+    if (
+      part.length > 0 &&
+      (part.length === SLOTS_PER_REQUEST || size + slotSize > MAX_REQUEST_SIZE)
+    ) {
+      parts.push(part)
+      part = []
+      size = 0
+    }
+    part.push(slot)
+    size += slotSize
+  }
+  if (part.length > 0) parts.push(part)
+
   const result = { created: [], skipped: 0 }
-  for (const part of inParts(slots)) {
-    // Only these four values are sent (not the old id).
-    const body = part.map((slot) => ({
-      date: slot.date,
-      time: slot.time,
-      status: slot.status,
-      special: slot.special,
-    }))
+  for (const body of parts) {
     const data = (await admin.post('/slots/restore', { slots: body })).data
     result.created.push(...data.created)
     result.skipped += data.skipped

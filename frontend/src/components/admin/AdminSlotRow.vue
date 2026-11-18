@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, nextTick, useId } from 'vue'
 import { formatTime } from '@/utils/format'
-import { statusNames } from '@/utils/adminSlots'
+import { statusNames, bookingSummary } from '@/utils/adminSlots'
 
 // One time on the chosen day, in one compact row:
 //   the time | Open / On hold / Booked | Special | Remove
@@ -12,9 +12,14 @@ const props = defineProps({
   timeSlot: { type: Object, required: true }, // { id, date, time, status, special }
   specialFee: { type: Number, default: 0 }, // the extra customers pay for a special slot
   canRemove: { type: Boolean, default: true }, // false on days that have passed
+  catalog: { type: Object, default: () => ({}) }, // services, add-ons and designs, for the summary
 })
 
-const emit = defineEmits(['set-status', 'set-special', 'remove'])
+const emit = defineEmits(['set-status', 'set-special', 'remove', 'details'])
+
+// Booked and on-hold times can have her notes on who is coming and what for.
+const canHaveDetails = computed(() => props.timeSlot.status !== 'open')
+const summary = computed(() => bookingSummary(props.timeSlot.booking, props.catalog))
 
 const id = useId()
 const confirming = ref(false)
@@ -117,6 +122,27 @@ function confirmRemove() {
     <p v-if="timeSlot.special && !confirming" class="special-note">
       <span aria-hidden="true">★</span> Specially opened slot: customers see +${{ specialFee }}
     </p>
+
+    <!-- Who is coming and what for: a summary to tap, or "Add details".
+         One button for both, so the focus stays on it when the details are saved. -->
+    <button
+      v-if="canHaveDetails && !confirming"
+      type="button"
+      :class="timeSlot.booking ? 'details-summary' : 'btn btn-link btn-sm add-details'"
+      :aria-label="
+        timeSlot.booking
+          ? `Details for ${timeText}: ${[summary.customer, summary.details].filter(Boolean).join(', ')}. Change`
+          : `Add details for ${timeText}`
+      "
+      @click="emit('details')"
+    >
+      <template v-if="timeSlot.booking">
+        <strong v-if="summary.customer">{{ summary.customer }}</strong>
+        <span v-if="summary.customer && summary.details" aria-hidden="true"> · </span>
+        <span>{{ summary.details }}</span>
+      </template>
+      <template v-else>+ Add details</template>
+    </button>
   </li>
 </template>
 
@@ -241,6 +267,30 @@ function confirmRemove() {
 
 .tool-button:hover {
   border-color: var(--tt-line);
+}
+
+/* The booking summary: one line, tap to change. */
+.details-summary {
+  display: block;
+  width: calc(100% - 3.2rem);
+  min-height: 44px;
+  margin: 0.25rem 0 0 3.2rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--tt-line);
+  border-radius: var(--tt-radius-small);
+  background: var(--tt-cream);
+  color: var(--tt-ink);
+  font-size: 0.9rem;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.add-details {
+  min-height: 44px;
+  margin-left: 3.2rem;
+  padding-left: 0;
+  color: var(--tt-muted);
+  font-weight: 600;
 }
 
 .special-note {

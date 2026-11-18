@@ -19,6 +19,13 @@ describe('AdminUpcoming', () => {
     ])
   })
 
+  it('shows who is coming and what for under a time', () => {
+    const withDetails = [{ ...slots[0], booking: { customer: 'Mei', design: 'own', price: 60 } }]
+    const wrapper = mount(AdminUpcoming, { props: { slots: withDetails } })
+
+    expect(wrapper.find('.upcoming-details').text()).toBe('Mei · Own design · $60')
+  })
+
   it('opens the day she taps', async () => {
     const wrapper = mount(AdminUpcoming, { props: { slots } })
 

@@ -7,9 +7,10 @@ import {
   removeSlot,
   removeSlots,
   restoreSlots,
+  getAdminDesigns,
   errorMessage,
 } from '@/services/adminApi'
-import { getSpecialSlotFee } from '@/services/api'
+import { getServices, getAddOns, getSpecialSlotFee } from '@/services/api'
 import { useAdminToastStore } from '@/stores/adminToast'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import {
@@ -28,6 +29,7 @@ import AdminBulkBar from '@/components/admin/AdminBulkBar.vue'
 import AdminUpcoming from '@/components/admin/AdminUpcoming.vue'
 import AdminSheet from '@/components/admin/AdminSheet.vue'
 import AdminOpenTimesForm from '@/components/admin/AdminOpenTimesForm.vue'
+import AdminBookingForm from '@/components/admin/AdminBookingForm.vue'
 
 // The owner's calendar (/admin).
 //   - Tap a day: its times open in a sheet (phone) or the right-hand column (laptop).
@@ -60,6 +62,10 @@ const working = ref('') // the add or remove action being saved, e.g. 'bulk-open
 const openTimesOpen = ref(false) // the "Open times" sheet
 const removeAllOpen = ref(false) // the "Remove all times?" sheet
 const specialFee = ref(0)
+// Her price list and designs, for booking details: { services, addOns, designs, specialFee }
+const catalog = reactive({ services: [], addOns: [], designs: [], specialFee: 0 })
+const detailsSlotId = ref('') // the slot whose details sheet is open
+const savingDetails = ref(false)
 
 // ---- What is on screen ----
 
@@ -212,16 +218,103 @@ function stopSelecting() {
 async function setStatus(slot, newStatus) {
   const before = slot.status
   if (before === newStatus) return
+  // Re-opening a slot clears its booking details (the server does the same), so it gets Undo.
+  const clearedBooking = newStatus === 'open' ? slot.booking : undefined
   slot.status = newStatus
+  if (clearedBooking) delete slot.booking
   toast.working()
   try {
     await updateSlot(slot.id, { status: newStatus })
-    toast.saved(`Saved: ${formatTime(slot.time)} ${statusNames[newStatus].toLowerCase()}`)
+    const time = formatTime(slot.time)
+    if (clearedBooking) {
+      toast.done(`Re-opened ${time}, details cleared`, () =>
+        undoReopen(slot, before, clearedBooking),
+      )
+    } else if (newStatus !== 'open' && !slot.booking) {
+      // A shortcut to note who is coming, without forcing the sheet open.
+      toast.savedWith(`Saved: ${time} ${statusNames[newStatus].toLowerCase()}`, 'Add details', () =>
+        openDetails(slot),
+      )
+    } else {
+      toast.saved(`Saved: ${time} ${statusNames[newStatus].toLowerCase()}`)
+    }
   } catch (error) {
     slot.status = before
+    if (clearedBooking) slot.booking = clearedBooking
     toast.failed(
       `Not saved: ${errorMessage(error)} ${formatTime(slot.time)} is back to ${statusNames[before].toLowerCase()}.`,
     )
+  }
+}
+
+// Undo "Re-opened 10am, details cleared": the old status and details come back.
+async function undoReopen(slot, status, booking) {
+  try {
+    const updated = await updateSlot(slot.id, { status, booking })
+    slot.status = updated.status
+    slot.booking = updated.booking
+    toast.saved(`Undone: ${formatTime(slot.time)} is ${statusNames[status].toLowerCase()} again`)
+  } catch (error) {
+    toast.failed(`Could not undo: ${errorMessage(error)}`)
+  }
+}
+
+// ---- Booking details (who is coming and what for) ----
+
+const detailsSlot = computed(() => (detailsSlotId.value ? findSlot(detailsSlotId.value) : null))
+const detailsTitle = computed(() =>
+  detailsSlot.value
+    ? `Details · ${formatShortDate(detailsSlot.value.date)}, ${formatTime(detailsSlot.value.time)}`
+    : 'Details',
+)
+
+function openDetails(slot) {
+  if (slot.status === 'open') return
+  detailsSlotId.value = slot.id
+}
+
+async function saveDetails(booking) {
+  const slot = detailsSlot.value
+  if (!slot || savingDetails.value) return
+  if (booking === null) return clearDetails() // nothing filled in
+  savingDetails.value = true
+  try {
+    const updated = await updateSlot(slot.id, { booking })
+    slot.booking = updated.booking
+    detailsSlotId.value = ''
+    toast.saved(`Saved details for ${formatTime(slot.time)}`)
+  } catch (error) {
+    toast.failed(`Details not saved: ${errorMessage(error)}`)
+  } finally {
+    savingDetails.value = false
+  }
+}
+
+async function clearDetails() {
+  const slot = detailsSlot.value
+  if (!slot || savingDetails.value) return
+  const old = slot.booking
+  savingDetails.value = true
+  try {
+    await updateSlot(slot.id, { booking: null })
+    delete slot.booking
+    detailsSlotId.value = ''
+    if (old) toast.done(`Details cleared for ${formatTime(slot.time)}`, () => undoClear(slot, old))
+    else toast.saved('No details to save')
+  } catch (error) {
+    toast.failed(`Not cleared: ${errorMessage(error)}`)
+  } finally {
+    savingDetails.value = false
+  }
+}
+
+async function undoClear(slot, booking) {
+  try {
+    const updated = await updateSlot(slot.id, { booking })
+    slot.booking = updated.booking
+    toast.saved('Undone: details are back')
+  } catch (error) {
+    toast.failed(`Could not undo: ${errorMessage(error)}`)
   }
 }
 
@@ -373,7 +466,16 @@ function confirmRemoveAll() {
 onMounted(() => {
   loadMonth(firstMonth)
   loadMonth(addMonths(firstMonth, 1)) // so "Coming up" can look a little ahead
-  getSpecialSlotFee().then((fee) => (specialFee.value = fee))
+  getSpecialSlotFee().then((fee) => {
+    specialFee.value = fee
+    catalog.specialFee = fee
+  })
+  // For booking details: her price list and her designs (a failure only hides names).
+  getServices().then((list) => (catalog.services = list))
+  getAddOns().then((list) => (catalog.addOns = list))
+  getAdminDesigns()
+    .then((list) => (catalog.designs = list))
+    .catch(() => {})
 })
 </script>
 
@@ -488,12 +590,14 @@ onMounted(() => {
             :slots="daySlots"
             :today="today"
             :special-fee="specialFee"
+            :catalog="catalog"
             :working="working"
             @set-status="setStatus"
             @set-special="setSpecial"
             @remove="removeOne"
             @add-times="addTimesToDay"
             @close-day="closeTheDay"
+            @details="openDetails"
           />
         </section>
 
@@ -501,6 +605,7 @@ onMounted(() => {
           v-if="!isWide || (!selectedDate && !selecting)"
           :slots="upcoming"
           :loading="loading"
+          :catalog="catalog"
           @open-day="openDay($event, { focusPanel: true })"
         />
       </div>
@@ -514,12 +619,14 @@ onMounted(() => {
         :slots="daySlots"
         :today="today"
         :special-fee="specialFee"
+        :catalog="catalog"
         :working="working"
         @set-status="setStatus"
         @set-special="setSpecial"
         @remove="removeOne"
         @add-times="addTimesToDay"
         @close-day="closeTheDay"
+        @details="openDetails"
       />
     </AdminSheet>
 
@@ -575,6 +682,19 @@ onMounted(() => {
           Cancel
         </button>
       </div>
+    </AdminSheet>
+
+    <!-- A booked or on-hold slot's details (opens over the day's sheet on a phone). -->
+    <AdminSheet :open="!!detailsSlot" :title="detailsTitle" @close="detailsSlotId = ''">
+      <AdminBookingForm
+        v-if="detailsSlot"
+        :key="detailsSlot.id"
+        :time-slot="detailsSlot"
+        :catalog="catalog"
+        :busy="savingDetails"
+        @save="saveDetails"
+        @clear="clearDetails"
+      />
     </AdminSheet>
   </AdminLayout>
 </template>

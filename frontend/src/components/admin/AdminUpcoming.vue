@@ -1,13 +1,16 @@
 <script setup>
 import { formatShortDate, formatTime } from '@/utils/format'
-import { statusNames } from '@/utils/adminSlots'
+import { statusNames, bookingSummary } from '@/utils/adminSlots'
 
-// "Coming up": her next on-hold and booked times, soonest first.
-// Tapping one opens that day.
-defineProps({
+// "Coming up": her next on-hold and booked times, soonest first, with who is coming and
+// what for when she has noted it. Tapping one opens that day.
+const props = defineProps({
   slots: { type: Array, required: true }, // already filtered, sorted and limited by the page
   loading: { type: Boolean, default: false },
+  catalog: { type: Object, default: () => ({}) }, // services, add-ons and designs, for the summary
 })
+
+const summaryOf = (slot) => bookingSummary(slot.booking, props.catalog)
 
 const emit = defineEmits(['open-day'])
 </script>
@@ -27,6 +30,11 @@ const emit = defineEmits(['open-day'])
           <span class="status-label" :class="`is-${slot.status}`">
             <span class="status-mark" :class="`is-${slot.status}`" aria-hidden="true"></span>
             {{ statusNames[slot.status] }}
+          </span>
+          <span v-if="slot.booking" class="upcoming-details">
+            <strong v-if="summaryOf(slot).customer">{{ summaryOf(slot).customer }}</strong>
+            <span v-if="summaryOf(slot).customer && summaryOf(slot).details"> · </span>
+            <span>{{ summaryOf(slot).details }}</span>
           </span>
         </button>
       </li>
@@ -78,6 +86,20 @@ const emit = defineEmits(['open-day'])
 
 .upcoming-date {
   font-weight: 700;
+}
+
+/* Who is coming and what for, on its own line under the date. */
+.upcoming-details {
+  grid-column: 1 / -1;
+  margin-top: -0.35rem;
+  padding-bottom: 0.3rem;
+  font-size: 0.88rem;
+  color: var(--tt-muted);
+  overflow-wrap: anywhere;
+}
+
+.upcoming-details strong {
+  color: var(--tt-ink);
 }
 
 .upcoming-time {

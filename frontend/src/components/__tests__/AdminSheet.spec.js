@@ -1,6 +1,9 @@
-import { mount } from '@vue/test-utils'
-import { describe, it, expect } from 'vitest'
+import { mount, enableAutoUnmount } from '@vue/test-utils'
+import { describe, it, expect, afterEach } from 'vitest'
 import AdminSheet from '../admin/AdminSheet.vue'
+
+// Each test's sheets are removed afterwards, so an open sheet never carries over.
+enableAutoUnmount(afterEach)
 
 // The sheet is normally placed at the end of <body>; in these tests it stays in place.
 function mountSheet(props = {}) {
@@ -42,6 +45,22 @@ describe('AdminSheet', () => {
     await wrapper.find('[role="dialog"]').trigger('keydown', { key: 'Escape' })
 
     expect(wrapper.emitted('close')).toHaveLength(1)
+  })
+
+  it('keeps the page behind locked until the last of two open sheets closes', async () => {
+    const page = document.createElement('div')
+    page.id = 'app'
+    document.body.appendChild(page)
+    const day = mountSheet()
+    const details = mountSheet({ title: 'Details' })
+    expect(page.inert).toBe(true)
+
+    await details.setProps({ open: false })
+    expect(page.inert).toBe(true)
+
+    await day.setProps({ open: false })
+    expect(page.inert).toBe(false)
+    page.remove()
   })
 
   it('closes when she taps the dimmed background', async () => {

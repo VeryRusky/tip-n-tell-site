@@ -12,6 +12,7 @@ vi.mock('@/services/adminApi', () => ({
   removeSlot: vi.fn(),
   removeSlots: vi.fn(),
   restoreSlots: vi.fn(),
+  getAdminDesigns: vi.fn(async () => []),
   getSession: vi.fn(),
   signOut: vi.fn(),
   errorMessage: () => 'No connection to the site.',
@@ -126,6 +127,51 @@ describe('AdminCalendarView', () => {
 
     expect(wrapper.text()).toContain('Not saved: No connection to the site. 10am is back to open.')
     expect(wrapper.find('input[value="open"]').element.checked).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('offers "Add details" after she marks a time booked, without opening it', async () => {
+    monthHas([slot('a', '10:00')])
+    adminApi.updateSlot.mockResolvedValue({ ...slot('a', '10:00'), status: 'booked' })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.find('button[data-date="2026-12-03"]').trigger('click')
+    await wrapper.find('input[value="booked"]').setValue(true)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Saved: 10am booked')
+    expect(wrapper.text()).not.toContain('Name or Instagram name')
+    await button(wrapper, 'Add details').trigger('click')
+    expect(wrapper.text()).toContain('Name or Instagram name')
+    wrapper.unmount()
+  })
+
+  it('clears the details when a time is re-opened, and Undo brings them back', async () => {
+    const details = { customer: 'Mei', service: 'extensions', price: 35 }
+    monthHas([{ ...slot('a', '10:00', 'booked'), booking: details }])
+    adminApi.updateSlot
+      .mockResolvedValueOnce({ ...slot('a', '10:00', 'open') })
+      .mockResolvedValueOnce({ ...slot('a', '10:00', 'booked'), booking: details })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.find('button[data-date="2026-12-03"]').trigger('click')
+    expect(wrapper.find('.details-summary').text()).toContain('Mei')
+    await wrapper.find('input[value="open"]').setValue(true)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Re-opened 10am, details cleared')
+    expect(wrapper.find('.details-summary').exists()).toBe(false)
+
+    await button(wrapper, 'Undo').trigger('click')
+    await flushPromises()
+
+    expect(adminApi.updateSlot).toHaveBeenLastCalledWith('a', {
+      status: 'booked',
+      booking: details,
+    })
+    expect(wrapper.find('.details-summary').text()).toContain('Mei')
     wrapper.unmount()
   })
 })
