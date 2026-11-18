@@ -30,62 +30,46 @@ describe('AdminDesignCard', () => {
     expect(wrapper.find('img').attributes('alt')).toBe('Design 9: Ruby almond')
   })
 
-  it('shows a drawing and a note when there is no photo yet', () => {
+  it('has just two buttons: Edit and Hide', () => {
+    const wrapper = mount(AdminDesignCard, { props: { design: makeDesign() } })
+
+    const words = wrapper.findAll('button').map((b) => b.text().split(' ')[0])
+    expect(words).toEqual(['Edit', 'Hide'])
+  })
+
+  it('shows a Sample art badge when there is no photo yet', () => {
     const wrapper = mount(AdminDesignCard, { props: { design: makeDesign({ image: null }) } })
 
     expect(wrapper.find('img').exists()).toBe(false)
-    expect(wrapper.text()).toContain('No photo yet')
-    expect(button(wrapper, 'Add photo').exists()).toBe(true)
+    expect(wrapper.find('.badge-sample').text()).toBe('Sample art')
   })
 
-  it('says when a design is hidden and offers to show it', async () => {
+  it('shows a Hidden badge and offers to show it again', async () => {
     const wrapper = mount(AdminDesignCard, { props: { design: makeDesign({ hidden: true }) } })
 
-    expect(wrapper.text()).toContain('Hidden from customers')
+    expect(wrapper.find('.badge-hidden').text()).toBe('Hidden')
     await button(wrapper, 'Show').trigger('click')
     expect(wrapper.emitted('toggle-hidden')).toHaveLength(1)
   })
 
-  it('moves later, and cannot move earlier when it is first', async () => {
-    const wrapper = mount(AdminDesignCard, { props: { design: makeDesign(), isFirst: true } })
+  it('says when she taps Edit', async () => {
+    const wrapper = mount(AdminDesignCard, { props: { design: makeDesign() } })
 
-    const earlier = wrapper.find('button[aria-label="Move #9 Ruby almond earlier"]')
-    const later = wrapper.find('button[aria-label="Move #9 Ruby almond later"]')
-    expect(earlier.attributes('disabled')).toBeDefined()
+    await button(wrapper, 'Edit').trigger('click')
 
-    await later.trigger('click')
+    expect(wrapper.emitted('edit')).toHaveLength(1)
+  })
+
+  it('shows its place and moves later, but not earlier, when it is first', async () => {
+    const wrapper = mount(AdminDesignCard, {
+      props: { design: makeDesign(), reordering: true, position: 1, isFirst: true },
+    })
+
+    expect(wrapper.find('.position').text()).toBe('1')
+    expect(button(wrapper, 'Edit')).toBeUndefined()
+    expect(button(wrapper, '← Earlier').attributes('disabled')).toBeDefined()
+
+    await button(wrapper, 'Later').trigger('click')
     expect(wrapper.emitted('move')).toEqual([[1]])
-  })
-
-  it('renames with the tidied new name', async () => {
-    const wrapper = mount(AdminDesignCard, { props: { design: makeDesign() } })
-
-    await button(wrapper, 'Rename').trigger('click')
-    await wrapper.find('form.rename input').setValue('  Ruby chrome ')
-    await wrapper.find('form.rename').trigger('submit')
-
-    expect(wrapper.emitted('rename')).toEqual([['Ruby chrome']])
-  })
-
-  it('does not accept an empty name', async () => {
-    const wrapper = mount(AdminDesignCard, { props: { design: makeDesign() } })
-
-    await button(wrapper, 'Rename').trigger('click')
-    await wrapper.find('form.rename input').setValue('   ')
-    await wrapper.find('form.rename').trigger('submit')
-
-    expect(wrapper.text()).toContain('Use 1 to 60 characters.')
-    expect(wrapper.emitted('rename')).toBeUndefined()
-  })
-
-  it('asks before deleting', async () => {
-    const wrapper = mount(AdminDesignCard, { props: { design: makeDesign() } })
-
-    await button(wrapper, 'Delete').trigger('click')
-    expect(wrapper.text()).toContain('Delete #9 Ruby almond and its photo? This cannot be undone.')
-    expect(wrapper.emitted('remove')).toBeUndefined()
-
-    await button(wrapper, 'Yes, delete').trigger('click')
-    expect(wrapper.emitted('remove')).toHaveLength(1)
   })
 })

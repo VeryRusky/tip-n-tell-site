@@ -1,141 +1,66 @@
 <script setup>
-import { ref, computed, nextTick, useId } from 'vue'
+import { computed } from 'vue'
 import DesignArt from '@/components/DesignArt.vue'
 
-// One design in the owner's gallery, with its controls: rename, replace photo,
-// hide / show, move earlier / later, and delete (asks first).
-// The page does the saving; this component only says what she asked for.
+// One design in the owner's gallery: the photo, "#3 Cherry bows", and two buttons:
+// Edit (name, photo, delete) and a quick Hide / Show.
+// In "Reorder" mode it shows its place in the list and Earlier / Later instead.
+// The page does the saving; this component only says what she tapped.
 const props = defineProps({
   design: { type: Object, required: true }, // { id, number, name, image, colors, hidden }
+  reordering: { type: Boolean, default: false },
+  position: { type: Number, default: 0 }, // 1 = first in the list (only used when reordering)
   isFirst: { type: Boolean, default: false },
   isLast: { type: Boolean, default: false },
   busy: { type: Boolean, default: false },
-  progress: { type: Number, default: null }, // upload progress 0-100 while replacing the photo
+  highlight: { type: Boolean, default: false }, // just added
 })
 
-const emit = defineEmits(['rename', 'replace', 'toggle-hidden', 'move', 'remove'])
-
-const id = useId()
-const renaming = ref(false)
-const draftName = ref('')
-const nameProblem = ref('')
-const confirmingDelete = ref(false)
-const nameInput = ref(null)
-const fileInput = ref(null)
+const emit = defineEmits(['edit', 'toggle-hidden', 'move'])
 
 // DesignArt shows the public number as the design's id (and picks the drawing by it).
 const artDesign = computed(() => ({ ...props.design, id: props.design.number }))
 const title = computed(() => `#${props.design.number} ${props.design.name}`)
-
-async function startRename() {
-  draftName.value = props.design.name
-  nameProblem.value = ''
-  renaming.value = true
-  await nextTick()
-  nameInput.value?.focus()
-}
-
-function saveName() {
-  const name = draftName.value.trim()
-  if (name.length < 1 || name.length > 60) {
-    nameProblem.value = 'Use 1 to 60 characters.'
-    return
-  }
-  renaming.value = false
-  if (name !== props.design.name) emit('rename', name)
-}
-
-function confirmDelete() {
-  confirmingDelete.value = false
-  emit('remove')
-}
-
-function chooseFile(event) {
-  const file = event.target.files?.[0]
-  event.target.value = '' // so choosing the same file again still works
-  if (file) emit('replace', file)
-}
 </script>
 
 <template>
-  <article class="design-card" :class="{ 'is-hidden': design.hidden }" :aria-label="title">
-    <div class="card-top">
-      <div class="card-art">
-        <DesignArt :design="artDesign" />
-        <div v-if="progress !== null" class="upload-progress">
-          <progress max="100" :value="progress" :aria-label="`Uploading new photo for ${title}`">
-            {{ progress }}%
-          </progress>
-        </div>
-      </div>
-
-      <div class="card-info">
-        <form v-if="renaming" class="rename" @submit.prevent="saveName">
-          <label :for="`${id}-name`" class="form-label mb-1">Name of #{{ design.number }}</label>
-          <input
-            :id="`${id}-name`"
-            ref="nameInput"
-            v-model="draftName"
-            class="form-control"
-            maxlength="60"
-            :aria-describedby="nameProblem ? `${id}-problem` : undefined"
-          />
-          <p v-if="nameProblem" :id="`${id}-problem`" class="problem mb-0">{{ nameProblem }}</p>
-          <div class="d-flex gap-2 mt-2">
-            <button type="submit" class="btn btn-primary btn-sm">Save name</button>
-            <button type="button" class="btn btn-outline-primary btn-sm" @click="renaming = false">
-              Cancel
-            </button>
-          </div>
-        </form>
-        <template v-else>
-          <p class="design-title mb-1">
-            <span class="design-number">#{{ design.number }}</span> {{ design.name }}
-          </p>
-          <p v-if="design.hidden" class="hidden-note mb-1">Hidden from customers</p>
-          <p v-if="!design.image" class="small-print mb-1">No photo yet (a drawing is shown)</p>
-        </template>
-
-        <div class="move-buttons">
-          <button
-            type="button"
-            class="btn btn-outline-primary icon-button"
-            :disabled="isFirst || busy"
-            :aria-label="`Move ${title} earlier`"
-            @click="emit('move', -1)"
-          >
-            <span aria-hidden="true">↑</span>
-          </button>
-          <button
-            type="button"
-            class="btn btn-outline-primary icon-button"
-            :disabled="isLast || busy"
-            :aria-label="`Move ${title} later`"
-            @click="emit('move', 1)"
-          >
-            <span aria-hidden="true">↓</span>
-          </button>
-        </div>
+  <article
+    class="design-card"
+    :class="{ 'is-hidden': design.hidden, 'is-new': highlight }"
+    :aria-label="title"
+  >
+    <div class="card-art">
+      <DesignArt :design="artDesign" />
+      <span v-if="reordering" class="position" aria-hidden="true">{{ position }}</span>
+      <div class="badges">
+        <span v-if="design.hidden" class="badge-hidden">Hidden</span>
+        <span v-if="!design.image" class="badge-sample">Sample art</span>
       </div>
     </div>
 
-    <div v-if="confirmingDelete" class="confirm" role="group" :aria-label="`Delete ${title}?`">
-      <p class="mb-2">
-        Delete {{ title }} and its photo? This cannot be undone. Number #{{ design.number }} will
-        not be used again.
-      </p>
-      <div class="d-flex gap-2">
-        <button type="button" class="btn btn-primary btn-sm" @click="confirmDelete">
-          Yes, delete
-        </button>
-        <button
-          type="button"
-          class="btn btn-outline-primary btn-sm"
-          @click="confirmingDelete = false"
-        >
-          Keep it
-        </button>
-      </div>
+    <p class="design-title">
+      <span class="design-number">#{{ design.number }}</span> {{ design.name }}
+    </p>
+
+    <div v-if="reordering" class="card-actions">
+      <button
+        type="button"
+        class="btn btn-outline-primary btn-sm"
+        :disabled="isFirst"
+        :aria-label="`Move ${title} earlier (now ${position})`"
+        @click="emit('move', -1)"
+      >
+        <span aria-hidden="true">←</span> Earlier
+      </button>
+      <button
+        type="button"
+        class="btn btn-outline-primary btn-sm"
+        :disabled="isLast"
+        :aria-label="`Move ${title} later (now ${position})`"
+        @click="emit('move', 1)"
+      >
+        Later <span aria-hidden="true">→</span>
+      </button>
     </div>
 
     <div v-else class="card-actions">
@@ -143,43 +68,17 @@ function chooseFile(event) {
         type="button"
         class="btn btn-outline-primary btn-sm"
         :disabled="busy"
-        @click="startRename"
+        @click="emit('edit')"
       >
-        Rename <span class="visually-hidden">{{ title }}</span>
+        Edit <span class="visually-hidden">{{ title }}</span>
       </button>
       <button
         type="button"
-        class="btn btn-outline-primary btn-sm"
-        :disabled="busy"
-        @click="fileInput.click()"
-      >
-        {{ design.image ? 'Replace photo' : 'Add photo' }}
-        <span class="visually-hidden">for {{ title }}</span>
-      </button>
-      <input
-        ref="fileInput"
-        type="file"
-        accept="image/*"
-        class="visually-hidden"
-        tabindex="-1"
-        aria-hidden="true"
-        @change="chooseFile"
-      />
-      <button
-        type="button"
-        class="btn btn-outline-primary btn-sm"
+        class="btn btn-sm hide-button"
         :disabled="busy"
         @click="emit('toggle-hidden')"
       >
         {{ design.hidden ? 'Show' : 'Hide' }} <span class="visually-hidden">{{ title }}</span>
-      </button>
-      <button
-        type="button"
-        class="btn btn-outline-primary btn-sm delete-button"
-        :disabled="busy"
-        @click="confirmingDelete = true"
-      >
-        Delete <span class="visually-hidden">{{ title }}</span>
       </button>
     </div>
   </article>
@@ -191,106 +90,117 @@ function chooseFile(event) {
   background: var(--tt-white);
   border: 1px solid var(--tt-line);
   border-radius: var(--tt-radius);
-  padding: 0.75rem;
+  padding: 0.6rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  scroll-margin: 6rem;
 }
 
+/* Hidden from customers: dimmed, with a dashed frame and a "Hidden" badge. */
 .design-card.is-hidden {
   border-style: dashed;
   background: transparent;
 }
 
-.design-card.is-hidden .card-art {
-  opacity: 0.55;
+.design-card.is-hidden .card-art :deep(.design-art) {
+  opacity: 0.45;
 }
 
-.card-top {
-  display: flex;
-  gap: 0.75rem;
+/* Just added: a rose glow for a moment. */
+.design-card.is-new {
+  box-shadow: 0 0 0 4px var(--tt-deep-rose);
+  transition: box-shadow 0.4s ease;
 }
 
 .card-art {
   position: relative;
-  flex: 0 0 112px;
 }
 
-.upload-progress {
+.position {
   position: absolute;
-  inset: auto 6px 6px;
+  top: 6px;
+  left: 6px;
+  min-width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--tt-ink);
+  color: #fff;
+  font-weight: 800;
 }
 
-.upload-progress progress {
-  width: 100%;
-  accent-color: var(--tt-deep-rose);
-}
-
-.card-info {
-  flex: 1 1 auto;
-  min-width: 0;
+.badges {
+  position: absolute;
+  top: 6px;
+  right: 6px;
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.badge-hidden,
+.badge-sample {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+}
+
+.badge-hidden {
+  background: var(--tt-ink);
+  color: #fff;
+}
+
+.badge-sample {
+  background: #fffc;
+  color: var(--tt-ink);
+  border: 1px solid var(--tt-line);
+}
+
+/* The drawing already says "sample" in its corner; the badge says it once, clearly. */
+.card-art :deep(.placeholder-label) {
+  display: none;
 }
 
 .design-title {
-  font-size: 1.05rem;
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.25;
   overflow-wrap: anywhere;
 }
 
 .design-number {
-  font-weight: 700;
   color: var(--tt-deep-rose);
 }
 
-.hidden-note {
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: var(--tt-muted);
-}
-
-.move-buttons {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: auto;
-  padding-top: 0.25rem;
-}
-
-.icon-button {
-  width: 44px;
-  min-height: 44px;
-  padding: 0;
-  font-size: 1.2rem;
-}
-
 .card-actions {
+  margin-top: auto;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.5rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
 }
 
 .card-actions .btn {
-  min-height: 44px;
+  padding-left: 0.4rem;
+  padding-right: 0.4rem;
 }
 
-.delete-button {
-  --bs-btn-color: #8a1c2b;
-  --bs-btn-border-color: #8a1c2b;
-}
-
-.confirm {
-  background: var(--tt-pink);
-  border-radius: var(--tt-radius-small);
-  padding: 0.75rem;
-}
-
-.rename .form-control {
-  min-height: 44px;
-}
-
-.problem {
-  color: #8a1c2b;
-  font-weight: 700;
-  font-size: 0.9rem;
+/* Hide / Show: a quiet button, so Edit stays the main one. */
+.hide-button {
+  --bs-btn-color: var(--tt-muted);
+  --bs-btn-border-color: var(--tt-line);
+  --bs-btn-bg: transparent;
+  --bs-btn-hover-bg: var(--tt-pink);
+  --bs-btn-hover-color: var(--tt-ink);
+  --bs-btn-hover-border-color: var(--tt-line);
+  --bs-btn-active-bg: var(--tt-pink);
+  --bs-btn-active-border-color: var(--tt-line);
 }
 </style>
