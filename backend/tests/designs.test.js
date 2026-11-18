@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import zlib from 'node:zlib'
 import request from 'supertest'
 import sharp from 'sharp'
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
@@ -81,6 +82,49 @@ describe('design photos', () => {
     const stored = await fs.readFile(path.join(uploadsDir, path.basename(response.body.image)))
     const size = await sharp(stored).metadata()
     expect(Math.max(size.width, size.height)).toBe(1600)
+  })
+
+  it('accepts PNG, WebP, GIF and AVIF photos and stores them as WebP', async () => {
+    const base = sharp({ create: { width: 40, height: 30, channels: 3, background: '#c4737c' } })
+    for (const format of ['png', 'webp', 'gif', 'avif']) {
+      const photo = await base.clone().toFormat(format).toBuffer()
+      const response = await addDesign(`A ${format} photo`, photo, `photo.${format}`)
+      expect(response.status, format).toBe(201)
+    }
+  })
+
+  it.each([
+    [
+      'TIFF',
+      async () =>
+        sharp({ create: { width: 20, height: 20, channels: 3, background: '#fff' } })
+          .tiff()
+          .toBuffer(),
+    ],
+    [
+      'SVG',
+      async () =>
+        Buffer.from(
+          '<svg xmlns="http://www.w3.org/2000/svg" width="9" height="9"><script>alert(1)</script></svg>',
+        ),
+    ],
+  ])('refuses a %s file without reading it', async (label, makeFile) => {
+    const response = await addDesign(label, await makeFile(), 'file.img')
+    expect(response.status).toBe(400)
+    expect(response.body.error).toMatch(/not a photo we can read/)
+  })
+
+  it('gives a picture over 60 megapixels its own "too large" message', async () => {
+    // A tiny PNG whose header claims 10,000 x 10,000 pixels (a "decompression bomb").
+    const png = await sharp({ create: { width: 1, height: 1, channels: 3, background: '#fff' } })
+      .png()
+      .toBuffer()
+    png.writeUInt32BE(10000, 16) // width
+    png.writeUInt32BE(10000, 20) // height
+    png.writeUInt32BE(zlib.crc32(png.subarray(12, 29)), 29) // the header's checksum
+    const response = await addDesign('Huge', png, 'huge.png')
+    expect(response.status).toBe(400)
+    expect(response.body.error).toMatch(/too large \(over 60 megapixels\)/)
   })
 
   it('rejects a file that is not a picture', async () => {

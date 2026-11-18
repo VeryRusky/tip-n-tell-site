@@ -12,7 +12,34 @@ import { BadRequest } from './validate.js'
 //      details, ICC profile) into the new file unless asked to, and we never ask.
 
 const MAX_EDGE = 1600
+const MAX_PIXELS = 60_000_000 // 60 megapixels; phone photos are 12 to 48
 const ALLOWED_FORMATS = ['jpeg', 'png', 'webp', 'avif', 'heif', 'gif']
+
+// Only let sharp's image library (libvips) read the formats we accept, and only from
+// memory. Every other reader (SVG, TIFF, PDF, files on disk, ...) is switched off, so
+// less code ever looks at an untrusted file. Names checked against libvips 8.18 (sharp
+// 0.35): GIF is read by "Nsgif", and AVIF photos go through the HEIF reader.
+sharp.block({ operation: ['VipsForeignLoad'] })
+sharp.unblock({
+  operation: [
+    'VipsForeignLoadJpegBuffer',
+    'VipsForeignLoadPngBuffer',
+    'VipsForeignLoadWebpBuffer',
+    'VipsForeignLoadHeifBuffer',
+    'VipsForeignLoadNsgifBuffer',
+  ],
+})
+// A small free server has little memory: one photo at a time, and keep nothing cached.
+sharp.concurrency(1)
+sharp.cache(false)
+
+// sharp's message when a picture has more pixels than MAX_PIXELS.
+function isTooLarge(error) {
+  return /pixel limit/i.test(error?.message ?? '')
+}
+
+const TOO_LARGE =
+  'That photo is too large (over 60 megapixels). Please choose a smaller picture or a screenshot of it.'
 
 // Turns { r, g, b } into '#rrggbb'.
 function toHex({ r, g, b }) {
@@ -23,9 +50,10 @@ export async function processPhoto(buffer) {
   let format
   try {
     // limitInputPixels stops "decompression bombs" (tiny files that unpack to huge images).
-    const metadata = await sharp(buffer, { limitInputPixels: 60_000_000 }).metadata()
+    const metadata = await sharp(buffer, { limitInputPixels: MAX_PIXELS }).metadata()
     format = metadata.format
-  } catch {
+  } catch (error) {
+    if (isTooLarge(error)) throw new BadRequest(TOO_LARGE)
     throw new BadRequest(
       'That file is not a photo we can read. Please choose a JPEG, PNG or WebP picture.',
     )
@@ -35,7 +63,7 @@ export async function processPhoto(buffer) {
   }
 
   try {
-    const image = sharp(buffer, { limitInputPixels: 60_000_000 })
+    const image = sharp(buffer, { limitInputPixels: MAX_PIXELS })
       .rotate() // with no angle: turn upright using the EXIF orientation
       .resize({ width: MAX_EDGE, height: MAX_EDGE, fit: 'inside', withoutEnlargement: true })
 
@@ -52,7 +80,8 @@ export async function processPhoto(buffer) {
     const colors = [toHex(stats.dominant), toHex(average)]
 
     return { buffer: output, colors }
-  } catch {
+  } catch (error) {
+    if (isTooLarge(error)) throw new BadRequest(TOO_LARGE)
     throw new BadRequest('That photo could not be processed. Please try a different picture.')
   }
 }
