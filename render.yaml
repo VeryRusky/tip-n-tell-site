@@ -18,17 +18,21 @@ services:
     autoDeployTrigger: commit # deploy every new commit on the branch
     healthCheckPath: /api/health
 
-    # 1. Turn on pnpm, at the version in package.json's "packageManager" (Corepack).
-    # 2. Build the site. Building needs the dev tools (Vite), so this one install runs with
+    # pnpm is run through npx at the exact version in both package.json files
+    # ("packageManager"). Render's Node folder is read-only, so nothing can be installed
+    # globally there; npx only uses npm's download cache.
+    # 1. Build the site. Building needs the dev tools (Vite), so this one install runs with
     #    NODE_ENV=development (NODE_ENV=production below would make pnpm skip them).
     #    The VITE_* settings below are read here.
-    # 3. Install the API's own packages only (--prod: no test tools such as
+    # 2. Install the API's own packages only (--prod: no test tools such as
     #    mongodb-memory-server). --ignore-scripts: none of them needs an install script,
     #    and pnpm would otherwise try the test tool's download script.
     buildCommand: >-
-      npm install -g corepack@0.36.0 && corepack enable pnpm &&
-      cd frontend && NODE_ENV=development pnpm install --frozen-lockfile && pnpm build &&
-      cd ../backend && pnpm install --frozen-lockfile --prod --ignore-scripts
+      cd frontend &&
+      NODE_ENV=development npx -y pnpm@12.3.4 install --frozen-lockfile &&
+      npx -y pnpm@12.3.4 build &&
+      cd ../backend &&
+      npx -y pnpm@12.3.4 install --frozen-lockfile --prod --ignore-scripts
     startCommand: cd backend && node server.js
 
     envVars:

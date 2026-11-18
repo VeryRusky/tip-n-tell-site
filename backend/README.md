@@ -231,9 +231,11 @@ is public.
 
 What `render.yaml` does on every deploy:
 
-- **Build:** turns on pnpm 12.3.4 (the `packageManager` in both `package.json` files), installs
-  and builds the site with `VITE_API_URL=/api`, then installs the API's packages only (no test
-  tools).
+- **Build:** runs pnpm 12.3.4 through `npx` (the same version as `packageManager` in both
+  `package.json` files), installs and builds the site with `VITE_API_URL=/api`, then installs
+  the API's packages only (no test tools). It uses `npx` because Render's Node folder is
+  read-only: `npm install -g` and `corepack enable` fail there, while `npx` only writes to
+  npm's download cache.
 - **Start:** `cd backend && node server.js`. Render checks `/api/health` to know it is up.
 - **Settings it sets for you:** `NODE_VERSION`, `NODE_ENV=production`, `TRUST_PROXY=1`,
   `STORAGE_DRIVER=cloudinary`, `VITE_API_URL=/api`, `VITE_DEMO_MODE=true` (the "Demo site"
@@ -328,7 +330,8 @@ customers a paid plan is better.
   "About ALLOWED_ORIGINS").
 - **New packages:** commit the updated `pnpm-lock.yaml`; the build refuses a lockfile that
   doesn't match `package.json`. If you update pnpm on your computer, change `packageManager`
-  in both `package.json` files to the same version.
+  in both `package.json` files **and** the three `pnpm@...` in `render.yaml`'s build command
+  to the same version.
 
 ### Try the live set-up on your computer
 
