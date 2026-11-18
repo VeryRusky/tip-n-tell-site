@@ -2,7 +2,14 @@ import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import AdminDesignEditor from '../admin/AdminDesignEditor.vue'
 
-const design = { id: 'd1', number: 3, name: 'Cherry bows', image: null, hidden: false }
+const design = {
+  id: 'd1',
+  number: 3,
+  name: 'Cherry bows',
+  image: null,
+  colors: ['#8e1f2c', '#f7ece4'],
+  hidden: false,
+}
 
 // Finds a button by the words she sees on it.
 function button(wrapper, words) {

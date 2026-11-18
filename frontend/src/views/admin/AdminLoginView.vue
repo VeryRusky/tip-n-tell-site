@@ -5,6 +5,7 @@ import { useAdminStore } from '@/stores/admin'
 import { getLoginOptions, signInWithGoogle, devSignIn, errorMessage } from '@/services/adminApi'
 import { showGoogleButton } from '@/utils/googleSignIn'
 import BrandWordmark from '@/components/BrandWordmark.vue'
+import '@/assets/admin.css' // the admin pages' button colours
 
 // The owner's sign-in page (/admin/login). Only her Google account is accepted.
 const route = useRoute()
@@ -91,7 +92,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main id="main" class="login-page">
+  <main id="main" class="tt-admin login-page">
     <div class="login-card">
       <BrandWordmark size="large" />
       <h1 class="login-title">Sign in to manage your site</h1>

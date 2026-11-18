@@ -11,8 +11,8 @@
   --tt-hold-bg: #fdf0d8;
 
   /* Danger: removing or deleting things that matter. */
-  --tt-danger: #8a1c2b;
-  --tt-danger-dark: #6c1420;
+  --tt-danger: #a4161a; /* a clear red, unlike the brand rose (7.5:1 on white) */
+  --tt-danger-dark: #7f1013;
   --tt-danger-bg: #fbe3e5;
 }
 

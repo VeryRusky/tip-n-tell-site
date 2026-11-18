@@ -46,10 +46,13 @@ pnpm dev                           # with `pnpm dev` also running in ../backend
   `src/data/prices.js`. Without `VITE_API_URL` it uses the sample data, as in the demo.
 - In development, Vite forwards `/api` and `/uploads` to `http://localhost:8000`
   (`vite.config.js`), so the site and API share one address and no CORS is needed.
+  For a second copy of the API on another port, start Vite with e.g.
+  `API_PROXY_TARGET=http://localhost:8020`.
 - The owner's pages are `/admin/login`, `/admin` (calendar) and `/admin/designs`. They
   are registered only when `VITE_API_URL` is set, loaded on demand, not linked from the site,
   and marked `noindex`. Files: `src/views/admin/`, `src/components/admin/`,
-  `src/router/adminRoutes.js`, `src/stores/admin.js`, `src/services/adminApi.js`.
+  `src/router/adminRoutes.js`, `src/stores/admin.js`, `src/stores/adminToast.js` (the
+  messages with Undo), `src/services/adminApi.js`, `src/assets/admin.css` (admin-only styles).
 - A slot can be `open`, `pending` (shown to customers as "On hold", not pickable) or `booked`.
 
 Tests: `pnpm test` (Vitest + Vue Test Utils, in `src/components/__tests__/`).

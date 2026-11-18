@@ -3,7 +3,8 @@ import { ref, watch, onBeforeUnmount, useId } from 'vue'
 
 // A large "Take a photo or choose one" button with a square preview: the same square
 // shape customers see on the site. On a phone the button offers the camera or the photo
-// library. v-model is the chosen file (or null).
+// library. v-model is the chosen file (or null). Without any photo the preview shows the
+// "empty" slot (e.g. the design's sample drawing), or "No photo yet".
 const props = defineProps({
   modelValue: { type: Object, default: null }, // the chosen File
   currentImage: { type: String, default: '' }, // the photo the design has now, if any
@@ -43,10 +44,12 @@ onBeforeUnmount(forgetPreview)
 
 <template>
   <div class="photo-picker">
-    <div class="preview" :class="{ empty: !previewUrl && !currentImage }">
+    <div class="preview" :class="{ empty: !previewUrl && !currentImage && !$slots.empty }">
       <img v-if="previewUrl" :src="previewUrl" alt="Preview of the chosen photo" />
       <img v-else-if="currentImage" :src="currentImage" alt="The photo customers see now" />
-      <span v-else aria-hidden="true" class="empty-text">No photo yet</span>
+      <slot v-else name="empty">
+        <span aria-hidden="true" class="empty-text">No photo yet</span>
+      </slot>
     </div>
     <input
       :id="`${id}-file`"

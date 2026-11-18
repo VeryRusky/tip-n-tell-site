@@ -45,7 +45,7 @@ function save() {
       :aria-describedby="problem ? `${id}-problem` : `${id}-name-help`"
     />
     <p :id="`${id}-name-help`" class="small-print mt-1 mb-0">
-      Customers see the name and its number, e.g. "#9 {{ name.trim() || 'Cherry bows' }}".
+      Customers see it with its number, like "#3 Cherry bows".
     </p>
 
     <p v-if="problem" :id="`${id}-problem`" class="field-problem mt-2 mb-0">{{ problem }}</p>

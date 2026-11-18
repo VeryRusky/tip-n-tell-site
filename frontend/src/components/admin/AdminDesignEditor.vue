@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, nextTick, useId } from 'vue'
 import AdminPhotoPicker from './AdminPhotoPicker.vue'
+import DesignArt from '@/components/DesignArt.vue'
 
 // "Edit" for one design (shown in a sheet): its name, a new photo, show or hide, and at the
 // bottom, set apart, "Delete design" (which asks first). Nothing is saved until she taps
@@ -102,7 +103,11 @@ function save() {
       :current-image="design.image ?? ''"
       :label="design.image ? 'Replace photo' : 'Add a photo'"
       :disabled="busy"
-    />
+    >
+      <template #empty>
+        <DesignArt :design="{ ...design, id: design.number }" />
+      </template>
+    </AdminPhotoPicker>
     <p v-if="!design.image && !file" class="small-print mt-1 mb-0">
       Until you add a photo, customers see a drawing in this design's colours.
     </p>

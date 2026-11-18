@@ -47,7 +47,7 @@ const firstMonth = today.slice(0, 7)
 const lastMonth = addMonths(firstMonth, 12)
 
 const toast = useAdminToastStore()
-const isWide = useMediaQuery('(min-width: 768px)') // a laptop or tablet
+const isWide = useMediaQuery('(min-width: 992px)') // a laptop: two columns
 
 const month = ref(firstMonth) // the month on screen
 const months = reactive({}) // every month loaded so far: { '2026-12': [slots] }
@@ -381,7 +381,7 @@ onMounted(() => {
     </template>
 
     <div class="row g-4" :class="{ 'room-for-bar': selecting && !isWide }">
-      <div class="col-md-7">
+      <div class="col-lg-7">
         <div class="panel calendar-panel">
           <div class="month-header">
             <button
@@ -452,7 +452,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="col-md-5">
+      <div class="col-lg-5">
         <AdminBulkBar
           v-if="selecting"
           :docked="!isWide"
@@ -653,7 +653,7 @@ onMounted(() => {
   outline: none;
 }
 
-.col-md-5 > * + * {
+.col-lg-5 > * + * {
   margin-top: 1rem;
 }
 </style>
