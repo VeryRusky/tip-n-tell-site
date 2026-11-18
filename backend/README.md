@@ -10,8 +10,9 @@ A slot is a date, a time, a status (`open`, `pending` = on hold, `booked`) and w
 specially opened. Customers still send their request to her by Instagram DM; only she changes
 a slot. Visitors are never asked for anything and nothing about them is stored. The **only**
 personal data is what **she** types into a booked or on-hold slot (optional: a name or
-Instagram name, what they booked, a short note). Only she can see it, and it is deleted 30
-days after the appointment. See "Booking details (personal data)" below.
+Instagram name, what they booked, a short note). Only she and the person who maintains the
+site can see it, and it is deleted 30 days after the appointment. See "Booking details
+(personal data)" below.
 
 Built the way the WAD2 course teaches: Express 5, Mongoose, `routes/` → `controllers/` →
 `models/`. One difference: the course examples use `require(...)` (CommonJS). This project
@@ -455,9 +456,11 @@ Instagram name (up to 40 characters), the service, the design (a number or "own"
 the price, and a short note (up to 200 characters). Nothing else: unknown fields are refused,
 and the admin page reminds her to keep allergy or health information in her DMs.
 
-Who can see it: only her, signed in to the admin pages. The public `/api/slots` answer never
-contains it (built field by field in `publicController.js`, checked by tests). Admin answers
-are `no-store`. The values are never logged.
+Who can see it: her, signed in to the admin pages, and whoever holds the database and
+hosting accounts (the person who maintains the site), who could read it in Atlas. Nobody
+else: the public `/api/slots` answer never contains it (built field by field in
+`publicController.js`, checked by tests). Admin answers are `no-store`. The values are never
+logged. The Policies page says the same; if the accounts change hands, update it.
 
 How long: `services/bookingCleanup.js` deletes the details from every slot dated more than
 `BOOKING_DETAILS_KEEP_DAYS` (30) days ago, when the server starts and once a day. The slot

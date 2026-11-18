@@ -29,7 +29,9 @@ import { site, instagramProfileUrl } from '@/config/site'
     <!--
       Privacy notice (Singapore PDPA). Keep it true: visitors give nothing; the only personal
       data is what she notes on a booking in the admin, deleted 30 days after the appointment
-      (backend: BOOKING_DETAILS_KEEP_DAYS). Change this text if that ever changes.
+      (backend: BOOKING_DETAILS_KEEP_DAYS). Two people can read it: her in the admin, and whoever
+      holds the database and hosting accounts (the site's maintainer). Change this text if any of
+      that ever changes.
     -->
     <section id="privacy" class="panel mt-4" aria-labelledby="privacy-title">
       <h2 id="privacy-title">Privacy</h2>
@@ -41,8 +43,8 @@ import { site, instagramProfileUrl } from '@/config/site'
       </p>
       <p class="measure">
         Once you book by DM, I may note your name or Instagram name and what you booked in my
-        private booking calendar, so I can prepare for your appointment. Only I can see it, and it
-        is deleted 30 days after your appointment.
+        private booking calendar, so I can prepare for your appointment. Only I and the person who
+        maintains this site for me can see it, and it is deleted 30 days after your appointment.
       </p>
       <p class="measure">
         There are no ads or tracking cookies. Like any website, our hosting provider keeps short
