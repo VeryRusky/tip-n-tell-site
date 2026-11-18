@@ -60,11 +60,10 @@ function confirmRemove() {
         Remove it anyway? Message the customer first: the site does not tell them.
       </p>
       <div class="d-flex flex-wrap gap-2">
-        <button type="button" class="btn btn-danger btn-sm" @click="confirmRemove">
+        <!-- The safe choice is the filled button. -->
+        <button type="button" class="btn btn-primary btn-sm" @click="keepIt">Keep it</button>
+        <button type="button" class="btn btn-outline-danger btn-sm" @click="confirmRemove">
           Remove {{ timeText }}
-        </button>
-        <button type="button" class="btn btn-outline-primary btn-sm" @click="keepIt">
-          Keep it
         </button>
       </div>
     </div>

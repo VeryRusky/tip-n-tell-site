@@ -360,6 +360,11 @@ function removeAllPicked() {
   else removeTimes(pickedSlots.value, 'bulk-remove-all')
 }
 
+function removeOpenFromSheet() {
+  removeAllOpen.value = false
+  removeTimes(pickedOpen.value, 'bulk-remove-open')
+}
+
 function confirmRemoveAll() {
   removeAllOpen.value = false
   removeTimes(pickedSlots.value, 'bulk-remove-all')
@@ -545,11 +550,28 @@ onMounted(() => {
           seconds afterwards.
         </p>
       </div>
-      <div class="d-flex flex-wrap gap-2">
-        <button type="button" class="btn btn-danger flex-grow-1" @click="confirmRemoveAll">
+      <!-- The safest choice is always the filled, most visible button. -->
+      <div class="d-grid gap-2">
+        <button
+          v-if="pickedOpen.length"
+          type="button"
+          class="btn btn-primary"
+          @click="removeOpenFromSheet"
+        >
+          Only the {{ plural(pickedOpen.length, 'open time') }}
+        </button>
+        <button v-else type="button" class="btn btn-primary" @click="removeAllOpen = false">
+          Keep them
+        </button>
+        <button type="button" class="btn btn-outline-danger" @click="confirmRemoveAll">
           Remove all {{ plural(pickedSlots.length, 'time') }}
         </button>
-        <button type="button" class="btn btn-outline-primary" @click="removeAllOpen = false">
+        <button
+          v-if="pickedOpen.length"
+          type="button"
+          class="btn btn-outline-primary"
+          @click="removeAllOpen = false"
+        >
           Cancel
         </button>
       </div>

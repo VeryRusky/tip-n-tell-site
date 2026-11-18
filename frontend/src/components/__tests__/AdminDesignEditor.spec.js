@@ -55,6 +55,8 @@ describe('AdminDesignEditor', () => {
     expect(wrapper.text()).toContain('Delete #3 Cherry bows?')
     expect(wrapper.text()).toContain('Its photo is deleted too')
     expect(wrapper.emitted('delete')).toBeUndefined()
+    expect(button(wrapper, 'Keep it').classes()).toContain('btn-primary')
+    expect(button(wrapper, 'Delete #3 Cherry bows').classes()).toContain('btn-outline-danger')
 
     await button(wrapper, 'Delete #3 Cherry bows').trigger('click')
     expect(wrapper.emitted('delete')).toHaveLength(1)

@@ -67,18 +67,24 @@ function save() {
         used again.
       </p>
     </div>
-    <div class="d-flex flex-wrap gap-2">
+    <!-- The safe choice is the filled button. -->
+    <div class="d-grid gap-2">
       <button
         type="button"
-        class="btn btn-danger flex-grow-1"
+        class="btn btn-primary"
+        :disabled="busy"
+        @click="confirmingDelete = false"
+      >
+        Keep it
+      </button>
+      <button
+        type="button"
+        class="btn btn-outline-danger"
         :disabled="busy"
         :aria-busy="busy"
         @click="emit('delete')"
       >
         {{ busy ? 'Deleting…' : `Delete ${title}` }}
-      </button>
-      <button type="button" class="btn btn-outline-primary" @click="confirmingDelete = false">
-        Keep it
       </button>
     </div>
   </div>

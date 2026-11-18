@@ -5,10 +5,13 @@ import { useAdminStore } from '@/stores/admin'
 import { useAdminToastStore } from '@/stores/adminToast'
 import BrandWordmark from '@/components/BrandWordmark.vue'
 import AdminToasts from './AdminToasts.vue'
+import AdminAccountMenu from './AdminAccountMenu.vue'
 import '@/assets/admin.css'
 
 // The frame around the owner's admin pages: the brand, a link to the public site, who is
 // signed in, Sign out, and the two pages (Calendar, Designs). Calm on purpose.
+// On a phone it is one short row: who is signed in and Sign out sit behind the account
+// button (AdminAccountMenu). On a laptop they are shown in the header itself.
 // Pages put their main button next to the title with <template #actions>.
 defineProps({
   title: { type: String, required: true },
@@ -41,12 +44,15 @@ onBeforeUnmount(toast.clear)
             <BrandWordmark size="small" />
             <span class="admin-badge">Admin</span>
           </div>
-          <a class="view-site" :href="siteHome" target="_blank" rel="noopener">
-            View site <span aria-hidden="true">↗</span>
-            <span class="visually-hidden">(opens in a new tab)</span>
-          </a>
+          <div class="header-links">
+            <a class="view-site" :href="siteHome" target="_blank" rel="noopener">
+              View site <span aria-hidden="true">↗</span>
+              <span class="visually-hidden">(opens in a new tab)</span>
+            </a>
+            <AdminAccountMenu class="phone-only" :email="admin.email" @sign-out="signOut" />
+          </div>
         </div>
-        <div class="account-row">
+        <div class="account-row laptop-only">
           <p class="account-email">
             <span class="visually-hidden">Signed in as </span>{{ admin.email }}
           </p>
@@ -112,7 +118,18 @@ onBeforeUnmount(toast.clear)
 }
 
 .header-row {
-  padding-top: 0.5rem;
+  padding-top: 0.4rem;
+}
+
+.header-links {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Phone: no separate account row (it is in the account menu). */
+.account-row.laptop-only {
+  display: none;
 }
 
 .admin-badge {
@@ -233,12 +250,17 @@ onBeforeUnmount(toast.clear)
     padding-top: 0.5rem;
   }
 
-  .view-site {
+  .header-links {
     grid-area: site;
     padding-top: 0.5rem;
   }
 
-  .account-row {
+  .phone-only {
+    display: none;
+  }
+
+  .account-row.laptop-only {
+    display: flex;
     grid-area: account;
     justify-content: flex-end;
     padding-top: 0.5rem;

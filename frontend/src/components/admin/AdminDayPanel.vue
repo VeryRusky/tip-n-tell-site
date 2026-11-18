@@ -142,19 +142,29 @@ function close(includeTaken) {
         {{ taken === 1 ? 'it' : 'those' }} too? Message the
         {{ taken === 1 ? 'customer' : 'customers' }} first: the site does not tell them.
       </p>
+      <!-- The safest choice is always the filled, most visible button. -->
       <div class="d-flex flex-wrap gap-2">
-        <button type="button" class="btn btn-danger btn-sm" @click="close(true)">
-          Remove all {{ plural(slots.length, 'time') }}
-        </button>
         <button
           v-if="counts.open"
           type="button"
-          class="btn btn-outline-primary btn-sm"
+          class="btn btn-primary btn-sm"
           @click="close(false)"
         >
           Only the {{ plural(counts.open, 'open time') }}
         </button>
         <button
+          v-else
+          type="button"
+          class="btn btn-primary btn-sm"
+          @click="confirmingClose = false"
+        >
+          Keep {{ taken === 1 ? 'it' : 'them' }}
+        </button>
+        <button type="button" class="btn btn-outline-danger btn-sm" @click="close(true)">
+          Remove all {{ plural(slots.length, 'time') }}
+        </button>
+        <button
+          v-if="counts.open"
           type="button"
           class="btn btn-outline-primary btn-sm"
           @click="confirmingClose = false"

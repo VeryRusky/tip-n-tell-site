@@ -67,6 +67,8 @@ describe('AdminSlotRow', () => {
     await wrapper.find('button[aria-label="Remove 2pm"]').trigger('click')
     expect(wrapper.text()).toContain('2pm is booked. Remove it anyway?')
     expect(wrapper.emitted('remove')).toBeUndefined()
+    expect(button(wrapper, 'Keep it').classes()).toContain('btn-primary')
+    expect(button(wrapper, 'Remove 2pm').classes()).toContain('btn-outline-danger')
 
     await button(wrapper, 'Remove 2pm').trigger('click')
     expect(wrapper.emitted('remove')).toHaveLength(1)

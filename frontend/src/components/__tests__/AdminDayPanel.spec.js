@@ -52,6 +52,9 @@ describe('AdminDayPanel', () => {
     await button(wrapper, 'Close this day').trigger('click')
     expect(wrapper.text()).toContain('This day has 1 booked and 1 on hold.')
     expect(wrapper.emitted('close-day')).toBeUndefined()
+    // The safe choice is the filled button; removing everything is the outlined red one.
+    expect(button(wrapper, 'Only the 1 open time').classes()).toContain('btn-primary')
+    expect(button(wrapper, 'Remove all 3 times').classes()).toContain('btn-outline-danger')
 
     await button(wrapper, 'Only the 1 open time').trigger('click')
     expect(wrapper.emitted('close-day')).toEqual([[{ includeTaken: false }]])
@@ -64,6 +67,17 @@ describe('AdminDayPanel', () => {
     await button(wrapper, 'Remove all 1 time').trigger('click')
 
     expect(wrapper.emitted('close-day')).toEqual([[{ includeTaken: true }]])
+  })
+
+  it('offers "Keep it" as the main choice when every time is booked', async () => {
+    const wrapper = mountPanel({ slots: [slot('10:00', 'booked')] })
+
+    await button(wrapper, 'Close this day').trigger('click')
+    expect(button(wrapper, 'Keep it').classes()).toContain('btn-primary')
+    await button(wrapper, 'Keep it').trigger('click')
+
+    expect(wrapper.emitted('close-day')).toBeUndefined()
+    expect(button(wrapper, 'Close this day').exists()).toBe(true)
   })
 
   it('explains what Special means, with the fee', () => {

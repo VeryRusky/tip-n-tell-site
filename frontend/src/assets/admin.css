@@ -30,21 +30,7 @@
   padding-right: 1rem;
 }
 
-/* Danger buttons: dark red, used only for removing booked times and deleting designs. */
-.tt-admin .btn-danger {
-  --bs-btn-bg: var(--tt-danger);
-  --bs-btn-border-color: var(--tt-danger);
-  --bs-btn-color: #fff;
-  --bs-btn-hover-bg: var(--tt-danger-dark);
-  --bs-btn-hover-border-color: var(--tt-danger-dark);
-  --bs-btn-hover-color: #fff;
-  --bs-btn-active-bg: var(--tt-danger-dark);
-  --bs-btn-active-border-color: var(--tt-danger-dark);
-  --bs-btn-disabled-bg: #c49aa0;
-  --bs-btn-disabled-border-color: #c49aa0;
-  --bs-btn-disabled-opacity: 1;
-}
-
+/* Danger: an outlined dark-red button. The safe choice next to it is always the filled one. */
 .tt-admin .btn-outline-danger {
   --bs-btn-color: var(--tt-danger);
   --bs-btn-border-color: var(--tt-danger);
@@ -60,7 +46,6 @@
   --bs-btn-disabled-bg: transparent;
 }
 
-.tt-admin .btn-danger:focus-visible,
 .tt-admin .btn-outline-danger:focus-visible {
   outline-color: var(--tt-danger);
 }
