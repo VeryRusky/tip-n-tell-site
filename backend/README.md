@@ -40,6 +40,9 @@ pnpm dev
 Open the site as usual. The admin pages are at **`/admin`** (not linked anywhere on the site).
 For local testing, set `ALLOW_DEV_LOGIN=true` in `backend/.env` and use the **Dev login** button,
 since a real Google sign-in needs a Google client ID (see "Your own steps" below).
+The dev login only works with `NODE_ENV=development` **and an empty `MONGODB_URI`** (the
+temporary database); otherwise the server refuses to start and says what to change. Once you
+use a real database, sign in with Google instead.
 
 Without `frontend/.env.development` the frontend runs on sample data with no admin pages,
 exactly like the GitHub Pages demo.
@@ -54,7 +57,7 @@ pnpm start    # run without auto-restart (what a host runs)
 
 ### The temporary database
 
-If `MONGODB_URI` is empty (and `NODE_ENV` is not `production`), the server starts a temporary
+If `MONGODB_URI` is empty (and `NODE_ENV` is `development` or `test`), the server starts a temporary
 in-memory MongoDB, fills it with the sample slots and designs, and prints:
 
 ```
@@ -102,7 +105,7 @@ All addresses start with `/api`. "Today" is always worked out in Singapore time.
 | `GET /config` | (public) `{ googleClientId, devLogin }`, so the login page knows what to show |
 | `GET /session` | `{ signedIn, email }` |
 | `POST /session/google` | Body `{ credential }` (Google's ID token). Starts a session if it is her account. |
-| `POST /session/dev` | Dev login. **Only exists** when `ALLOW_DEV_LOGIN=true` and not in production. |
+| `POST /session/dev` | Dev login. **Only exists** when `ALLOW_DEV_LOGIN=true`, not in production, with the temporary database; answers 404 unless the request comes straight from this computer. |
 | `DELETE /session` | Sign out |
 | `GET /slots?month=2026-12` | The whole month, past days included |
 | `POST /slots` | Body `{ dates: [...], times: [...], special }`. Opens every time on every date; ones that already exist are skipped. |
@@ -125,15 +128,15 @@ Copy `.env.example` to `.env`. `.env` is never committed.
 
 | Variable | What it is | If empty |
 |---|---|---|
-| `NODE_ENV` | `development` on your computer, `production` on the live host | development |
+| `NODE_ENV` | `development` on your computer, `production` on the live host. **Anything other than `development` or `test`** (capitals and spaces ignored), including empty or `prod`, counts as production. | **production** (all production checks) |
 | `PORT` | Port to listen on | 8000 |
 | `MONGODB_URI` | MongoDB connection string (e.g. from Atlas) | development: temporary database. production: **won't start** |
 | `SESSION_SECRET` | Signs the login cookie. **At least 32 characters**, random. | development: a random one per start (you are signed out on restart). production: **won't start** |
 | `ADMIN_EMAIL` | Her Gmail address: the **only** account allowed in | nobody can sign in with Google. production: **won't start** |
 | `GOOGLE_CLIENT_ID` | The OAuth client ID from Google Cloud (not a secret) | login page says Google sign-in is not set up. production: **won't start** |
 | `ALLOWED_ORIGINS` | The site's own address(es), comma separated, e.g. `https://tipntell.example.com` | development: `http://localhost:5173,http://localhost:5180`. production: **won't start** |
-| `ALLOW_DEV_LOGIN` | `true` shows a Dev login button for local testing | off. `true` with `NODE_ENV=production` **won't start** |
-| `TRUST_PROXY` | Number of proxies in front of the server (usually `1` on a host like Render) | none |
+| `ALLOW_DEV_LOGIN` | `true` shows a Dev login button for local testing | off. `true` **won't start** unless `NODE_ENV` is development/test **and** `MONGODB_URI` is empty |
+| `TRUST_PROXY` | Number of proxies in front of the server: `1` on Render or Railway, `2` with Cloudflare in front | development: none. production: **won't start** unless it is a whole number of 1 or more (`true` is never allowed) |
 | `STORAGE_DRIVER` | Where photos go: `local` (`backend/uploads/`). Cloudinary comes at deploy. | `local` |
 
 Make a session secret with:
@@ -151,14 +154,18 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 | **Cookie flags**: `httpOnly`, `sameSite: 'strict'`, `secure` in production, about 7 days | `app.js` | Page scripts can't read the cookie; other websites can't make the browser send it; it only travels over HTTPS on the live site. |
 | **Same origin, no CORS** | `frontend/vite.config.js` proxy | The site and API share one address, so the cookie is first-party (Safari on iPhone blocks third-party cookies). No other website is allowed to call the API from a browser. |
 | **Origin check on every change** | `middleware/checkOrigin.js` | Stops "cross-site request forgery": a POST/PATCH/PUT/DELETE is refused unless its `Origin` header is in `ALLOWED_ORIGINS`. |
-| **Dev login can't reach production** | `config.js`, `routes/adminRoutes.js` | The route is only registered when `ALLOW_DEV_LOGIN=true` and not production, and the server refuses to start if both are set. |
+| **Production is the default** | `config.js` | Only `NODE_ENV=development` or `test` turns production off. A missing or mistyped value (hosts don't set it for you) still gets every production check and no dev login. |
+| **Dev login can't reach production** | `config.js`, `routes/adminRoutes.js`, `controllers/sessionController.js` | The route is only registered when `ALLOW_DEV_LOGIN=true` outside production. The server refuses to start if it is on in production or with a real database (`MONGODB_URI`). It answers 404 unless the request comes straight from this computer (no proxy, no `X-Forwarded-For`). |
+| **Sessions are tied to the owner** | `services/adminSession.js`, `middleware/requireAdmin.js` | Each session records how it was made (`google` or `dev`). Only a Google session for the current `ADMIN_EMAIL` is accepted on the live site; changing `ADMIN_EMAIL` ends old sessions; a dev session made on a laptop never works in production, even on a shared database. Rejected sessions are deleted. |
 | **Every photo is decoded and re-made** with `sharp` | `services/images.js` | Turns it upright, shrinks it to 1600 px, and saves a brand-new WebP with **no metadata**. Her photos are taken at home, so this is what guarantees the GPS location never reaches the public site. It can't be skipped, and a file that isn't a real picture gets a 400. |
+| **Only the needed image readers are switched on** | `services/images.js` | All libvips loaders are blocked except the in-memory ones for JPEG, PNG, WebP, HEIF/AVIF and GIF, so SVG, TIFF, PDF and the rest are never even parsed. Pictures over 60 megapixels get a "too large" message. One photo is processed at a time with no cache, to suit a small server. |
 | **Upload limits** (`multer`): 1 file, 8 MB, kept in memory | `middleware/upload.js` | Nothing unchecked is written to disk; huge uploads are refused. `sharp` also limits the pixel count. |
 | **Random photo file names**, served with `nosniff` | `services/storage/diskStorage.js`, `app.js` | Names can't be guessed and say nothing about the photo; a delete can only touch files the driver made (no `../` tricks). |
 | **Input checks** on every value | `services/validate.js`, controllers | Dates, times, months, statuses, names (1-60 chars) and ids are checked by hand. Each must be a plain string or true/false, so an object like `{ "$gt": "" }` can never reach a database query (NoSQL injection). Anything else gets a 400. |
 | **`helmet`** | `app.js` | Safe default headers (no framing, no MIME sniffing, a strict Content Security Policy for API answers, etc.). |
 | **JSON body limit 10 kB** | `app.js` | Nothing here needs more; stops oversized requests. |
-| **Rate limits** (`express-rate-limit`) | `middleware/rateLimits.js` | 10 sign-in attempts per 15 minutes per IP, 600 admin requests per 15 minutes. `TRUST_PROXY` makes them see the real IP behind a host's proxy. |
+| **Rate limits** (`express-rate-limit`) | `middleware/rateLimits.js`, `routes/publicRoutes.js` | 10 sign-in attempts per 15 minutes per IP, 600 admin requests per 15 minutes, 120 public reads per minute (the health check is not limited). `TRUST_PROXY` (a number, never `true`) makes them see the real IP behind a host's proxy. |
+| **60-second public cache** | `services/publicCache.js` | Months, each month's slots and the designs are remembered for a minute, so a flood of visitors costs one database read a minute (a free Atlas tier is small). Every admin change clears it, so her changes show at once. Browsers are not told to cache these answers. |
 | **`Cache-Control: no-store`** and `X-Robots-Tag: noindex` on admin answers | `middleware/noStore.js` | Admin data is never kept in a browser or shared cache, or listed by search engines. The admin pages also add `<meta name="robots" content="noindex">`. |
 | **Short, generic errors** | `middleware/errorHandler.js` | Visitors never see stack traces. The log notes only the method, path and message, never cookies, tokens or request bodies. |
 | **Unsafe settings stop the server** | `config.js` | e.g. a `SESSION_SECRET` under 32 characters, or a production server with no secret, database, admin email, client ID or allowed origins. |
@@ -192,7 +199,9 @@ These need your own accounts, so they were not done for you.
 3. *Network Access*: allow your computer's IP; for a free host whose IP changes, allow
    `0.0.0.0/0` (the user name and password still protect it).
 4. *Connect → Drivers*: copy the connection string, put the password in, and add the database
-   name before the `?`, e.g. `...mongodb.net/tipntell?retryWrites=true&w=majority`.
+   name before the `?`, e.g. `...mongodb.net/tipntell-dev?retryWrites=true&w=majority`.
+   Use **different database names** for laptops (`tipntell-dev`) and the live site (`tipntell`),
+   ideally with separate database users.
 5. Put it in `backend/.env` as `MONGODB_URI`, then run `pnpm seed` once if you want the sample
    slots and designs to start with.
 
@@ -208,3 +217,116 @@ These need your own accounts, so they were not done for you.
   `GOOGLE_CLIENT_ID`, `ALLOWED_ORIGINS=https://<the site>`, `TRUST_PROXY=1`, and **not**
   `ALLOW_DEV_LOGIN`. Build the frontend with `VITE_API_URL=/api`.
 - Add the live address to the Google client's Authorized JavaScript origins.
+
+## Go-live checklist (settings on the host)
+
+From the security review of 18 Nov 2026. Tick every box before the site takes real bookings.
+
+**Environment variables**
+- [ ] `NODE_ENV=production`. (Anything other than `development`/`test` also counts as
+      production, but write it out so it is clear.)
+- [ ] `ALLOW_DEV_LOGIN`: **not set at all** on the host.
+- [ ] `SESSION_SECRET`: a **new** 64-character random value made for the host only, never used
+      on a laptop (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
+- [ ] `MONGODB_URI`: the **live** database name (e.g. `/tipntell`), different from the one
+      laptops use (e.g. `/tipntell-dev`), with its own Atlas user and a long random password.
+- [ ] `ADMIN_EMAIL`: her Gmail, lower case.
+- [ ] `GOOGLE_CLIENT_ID`: the live client ID. In Google Cloud, add the live `https://` address
+      to *Authorized JavaScript origins*. Publish the consent screen or keep her as a test user.
+- [ ] `ALLOWED_ORIGINS`: exactly the address in her browser bar (see "About ALLOWED_ORIGINS" below).
+- [ ] `TRUST_PROXY=1` on Render or Railway (`2` if Cloudflare is added in front). **Never**
+      `true`: the server refuses to start with it.
+- [ ] `STORAGE_DRIVER=cloudinary` and `CLOUDINARY_URL` once the driver exists. A free host's
+      local disk is wiped on deploy.
+- [ ] Before the first live sign-in: empty the live `sessions` collection.
+
+**Same address, proxy and HTTPS**
+- [ ] The site, `/api` and `/uploads` are served from **one** HTTPS address (Express serves
+      `frontend/dist`, or the static host rewrites `/api/*` and `/uploads/*` to the API).
+      Otherwise the cookie becomes third-party and Safari drops it.
+- [ ] HTTPS is forced: HTTP redirects to HTTPS at the host, and HSTS is on.
+- [ ] The frontend is built with `VITE_API_URL=/api`. The GitHub Pages demo is still built
+      **without** it.
+- [ ] The HTML pages send the headers below ("Headers for the site's pages"). After deploy,
+      sign in once and check the browser console for CSP errors.
+- [ ] The public `/api` rate limit and the 60-second cache are in place (they are, in this code).
+
+**Atlas**
+- [ ] Network access: `0.0.0.0/0` only if the host has no fixed IP. The database user can
+      read and write only the live database.
+- [ ] Turn on Atlas alerts (connections, operations) so a flood is noticed.
+
+**After deploy, a 5-minute smoke test**
+- [ ] `/admin/login` shows **no** "Dev login" button, and
+      `curl -X POST https://<site>/api/admin/session/dev -H "Origin: https://<site>"`
+      returns **404**.
+- [ ] Sign in works and the cookie in DevTools shows `Secure`, `HttpOnly`, `SameSite=Strict`.
+- [ ] Sign out, then reload `/admin`: you are sent back to the login page.
+- [ ] Upload a phone photo, download it from the site, and check that it has no location
+      (e.g. with an online EXIF viewer).
+- [ ] `pnpm audit --prod` in `backend/` is clean.
+
+### Headers for the site's pages (deploy step)
+
+The API already sends helmet's strict defaults; keep those for `/api` answers. But helmet's
+defaults would **break Google sign-in** if they were also sent on the HTML pages (they block
+Google's script and its popup). So when the built site is served (by Express with its own
+helmet settings for the static files, or by a static host's headers file), send these on the
+**pages** instead. This depends on how the site is hosted, so it is done at deploy time:
+
+```
+Content-Security-Policy:
+  default-src 'self';
+  script-src 'self' https://accounts.google.com/gsi/client;
+  frame-src https://accounts.google.com/gsi/;
+  connect-src 'self' https://accounts.google.com/gsi/;
+  style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style;
+  img-src 'self' data: https://res.cloudinary.com;
+  font-src 'self';
+  object-src 'none'; base-uri 'self'; form-action 'self';
+  frame-ancestors 'none';
+  upgrade-insecure-requests
+Cross-Origin-Opener-Policy: same-origin-allow-popups
+Referrer-Policy: strict-origin-when-cross-origin
+Strict-Transport-Security: max-age=31536000
+X-Content-Type-Options: nosniff
+Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
+```
+
+- `'unsafe-inline'` is for **styles** only (Vue writes some inline `style="--d: 0"`
+  attributes). Scripts stay strict: the build has no inline scripts and no `eval`.
+- In Express with helmet this is `helmet({ contentSecurityPolicy: { directives: { ... } },
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }, referrerPolicy: { policy:
+  'strict-origin-when-cross-origin' } })`, used only for the static pages.
+
+### If her phone is lost (signing out every device)
+
+A session lasts 7 days from sign-in; there is no "sign out everywhere" button. To sign out
+**every** device at once, empty the `sessions` collection in the live Atlas database
+(Atlas → *Browse Collections* → `sessions` → delete all documents). She then signs in again
+with Google. Changing `ADMIN_EMAIL` also ends every session.
+
+### About ALLOWED_ORIGINS
+
+Admin changes are only accepted when the browser's `Origin` header matches **exactly**.
+Behind a proxy that header still comes from her browser, so the value must be exactly what her
+address bar shows: `https://`, no slash at the end, and the right `www` (or not). Best: pick one
+address and redirect every other one (`www`, `*.onrender.com`) to it, then list only that one.
+If the site is reachable on two addresses, admin changes only work on the listed one.
+
+### Optional: also match her Google account id (`sub`)
+
+The owner is matched by email. Google recommends its permanent account id (the `sub` claim)
+as the real identity. For a Gmail address email is fine; but if `ADMIN_EMAIL` were ever a
+non-Gmail address whose domain lapsed, someone could create a Google account with it. An
+optional extra step: after her first real sign-in, log her `sub` once, store it as
+`ADMIN_GOOGLE_SUB`, and require it to match too. (Not built yet.)
+
+### Rules for the future Cloudinary driver
+
+Also written next to the `TODO (deploy session)` in `services/storage/index.js`: upload
+**only** the cleaned buffer from `processPhoto()` (never `req.file`); use a random `public_id`
+(never the original file name); check the key's pattern before `destroy`; and pass
+`invalidate: true` so a deleted photo also leaves Cloudinary's CDN. (A **hidden** design's
+photo URL still loads for anyone who already has it, and browsers may keep it for a year;
+**deleting** the design removes the file. The admin designs page says so.)

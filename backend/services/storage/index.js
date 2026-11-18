@@ -16,7 +16,13 @@ export function createStorage(config) {
   //   Add services/storage/cloudinaryStorage.js with the same two functions,
   //   save(buffer) -> { url, key } and remove(key), using CLOUDINARY_URL from .env,
   //   then return it here when config.storageDriver === 'cloudinary'.
-  //   Upload the buffer that services/images.js produced (already cleaned of metadata).
+  //   Rules for it (from the security review, L1 and L7):
+  //   - Upload ONLY the cleaned buffer from processPhoto() in services/images.js,
+  //     never req.file or the original upload.
+  //   - Give each photo a random public_id (e.g. crypto.randomBytes(16).toString('hex')),
+  //     never the original file name.
+  //   - In remove(key), check the key matches the pattern this driver makes before
+  //     calling destroy(), and pass { invalidate: true } so Cloudinary's CDN forgets it.
   // ------------------------------------------------------------------
   throw new Error(`Unknown STORAGE_DRIVER "${config.storageDriver}". Use "local".`)
 }
