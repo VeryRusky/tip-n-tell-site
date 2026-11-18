@@ -148,6 +148,9 @@ onMounted(load)
       Customers see these in this order and quote the number in their message. Hidden designs stay
       here but are not shown on the site.
     </p>
+    <p class="small-print measure">
+      Hiding takes a design off the site; delete it to remove the photo too.
+    </p>
 
     <div class="mb-4">
       <AdminDesignForm
