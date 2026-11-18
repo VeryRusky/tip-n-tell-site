@@ -3,8 +3,10 @@
 A phone-first (and laptop-friendly) booking page for tip n tell. Customers pick an open slot, choose a service and design,
 and send the request to her as an Instagram DM. One button copies a ready-made message and opens
 Instagram: her chat (`ig.me/m/_tipntell`) on phones and tablets, or her profile on laptops, where the
-customer chooses Message. `src/utils/device.js` decides which. The site never books anything itself and stores no
-personal details. This draft runs on sample data with no backend.
+customer chooses Message. `src/utils/device.js` decides which. The site never books anything itself and never asks
+customers for personal details. (With the backend, the owner may note a customer's name and
+what they booked on a slot in her admin pages; see `backend/README.md`.) Without
+`VITE_API_URL` it runs on sample data with no backend.
 
 Built with Vue 3 (`<script setup>`), Vite, Vue Router, Pinia and Bootstrap 5, in plain JavaScript.
 

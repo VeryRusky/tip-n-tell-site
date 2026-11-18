@@ -49,7 +49,8 @@ const year = new Date().getFullYear()
       <div class="footer-bottom d-flex flex-column flex-md-row justify-content-md-between gap-1">
         <p class="mb-0">© {{ year }} {{ site.brandName }}</p>
         <p class="mb-0">
-          This site keeps no personal details. Bookings are made by DM on Instagram.
+          The site never asks for your details. Bookings are made by DM on Instagram.
+          <RouterLink :to="{ name: 'policies', hash: '#privacy' }">Privacy</RouterLink>
         </p>
       </div>
     </div>

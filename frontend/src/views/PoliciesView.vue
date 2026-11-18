@@ -26,19 +26,30 @@ import { site, instagramProfileUrl } from '@/config/site'
       </section>
     </div>
 
-    <!-- Privacy notice (Singapore PDPA). The site keeps no personal details. -->
+    <!--
+      Privacy notice (Singapore PDPA). Keep it true: visitors give nothing; the only personal
+      data is what she notes on a booking in the admin, deleted 30 days after the appointment
+      (backend: BOOKING_DETAILS_KEEP_DAYS). Change this text if that ever changes.
+    -->
     <section id="privacy" class="panel mt-4" aria-labelledby="privacy-title">
       <h2 id="privacy-title">Privacy</h2>
       <p class="measure">
-        This site doesn't ask for your name, phone number or email, and it doesn't store anything
-        about you. Your choices (time, service, design) are saved only in your own browser so you
-        don't lose them if you refresh. They reach me only when you send the message yourself on
-        Instagram, where Instagram's privacy policy applies. There are no ads or tracking cookies.
-        Like any website, our hosting provider keeps short technical logs (such as IP addresses) to
-        keep the site running and secure.
+        Browsing this site and using the booking steps stores nothing about you: the site doesn't
+        ask for your name, phone number or email. Your choices (time, service, design) are saved
+        only in your own browser, and reach me only when you send the message yourself on Instagram,
+        where Instagram's privacy policy applies.
+      </p>
+      <p class="measure">
+        Once you book by DM, I may note your name or Instagram name and what you booked in my
+        private booking calendar, so I can prepare for your appointment. Only I can see it, and it
+        is deleted 30 days after your appointment.
+      </p>
+      <p class="measure">
+        There are no ads or tracking cookies. Like any website, our hosting provider keeps short
+        technical logs (such as IP addresses) to keep the site running and secure.
       </p>
       <p class="measure mb-0">
-        Questions or requests about your data: DM
+        To see, correct or delete what I noted, or with any question about your data: DM
         <a :href="instagramProfileUrl" target="_blank" rel="noopener noreferrer"
           >@{{ site.instagramHandle }}</a
         >
