@@ -16,6 +16,19 @@ vi.mock('../services/googleVerifier.js', () => ({ verifyGoogleToken: vi.fn() }))
 
 const ID = '0123456789abcdef01234567' // any well-formed id
 
+// Settings for a correctly configured live server (on the same test database).
+const LIVE_ENV = {
+  NODE_ENV: 'production',
+  ALLOW_DEV_LOGIN: 'false',
+  MONGODB_URI: 'mongodb://example.invalid/tipntell',
+  TRUST_PROXY: '1',
+}
+
+// The session cookie from a response, to send to another copy of the server.
+function sessionCookie(response) {
+  return response.headers['set-cookie'].map((cookie) => cookie.split(';')[0]).join('; ')
+}
+
 // Every route that needs the owner to be signed in.
 const ADMIN_ROUTES = [
   ['get', '/api/admin/slots?month=2026-12'],
@@ -142,11 +155,7 @@ describe('dev login safety', () => {
   })
 
   it('does not exist in production mode', async () => {
-    const { app: liveApp } = await buildApp({
-      NODE_ENV: 'production',
-      ALLOW_DEV_LOGIN: 'false',
-      MONGODB_URI: 'mongodb://example.invalid/tipntell',
-    })
+    const { app: liveApp } = await buildApp(LIVE_ENV)
     const response = await request(liveApp).post('/api/admin/session/dev').set('Origin', ORIGIN)
     expect(response.status).toBe(404)
   })
@@ -176,5 +185,105 @@ describe('settings checks', () => {
   it('refuses to start in production without a database', () => {
     const env = { ...TEST_ENV, NODE_ENV: 'production', ALLOW_DEV_LOGIN: 'false' }
     expect(() => loadConfig(env)).toThrow(/MONGODB_URI/)
+  })
+})
+
+describe('production is the safe default (NODE_ENV)', () => {
+  it.each([['Production'], ['prod'], ['production '], [''], [undefined]])(
+    'counts NODE_ENV=%j as production and refuses the dev login',
+    (nodeEnv) => {
+      const env = { ...TEST_ENV, ...LIVE_ENV, NODE_ENV: nodeEnv, ALLOW_DEV_LOGIN: 'true' }
+      delete env.MONGODB_URI // so the only problem is the dev login in production
+      expect(() => loadConfig(env)).toThrow(
+        /ALLOW_DEV_LOGIN=true only works with NODE_ENV=development/,
+      )
+    },
+  )
+
+  it.each([['Production'], ['prod'], ['production '], [''], [undefined]])(
+    'gives NODE_ENV=%j every production check',
+    (nodeEnv) => {
+      const config = loadConfig({ ...TEST_ENV, ...LIVE_ENV, NODE_ENV: nodeEnv })
+      expect(config.isProduction).toBe(true)
+      expect(config.devLogin).toBe(false)
+      expect(() =>
+        loadConfig({ ...TEST_ENV, NODE_ENV: nodeEnv, ALLOW_DEV_LOGIN: 'false' }),
+      ).toThrow(/MONGODB_URI is required/)
+    },
+  )
+
+  it('accepts development and test with any capitals and spaces', () => {
+    expect(loadConfig({ ...TEST_ENV, NODE_ENV: ' Development ' }).mode).toBe('development')
+    expect(loadConfig({ ...TEST_ENV, NODE_ENV: 'TEST' }).mode).toBe('test')
+  })
+})
+
+describe('dev login limits', () => {
+  it('refuses to start with a real database, and says what to do', () => {
+    const env = { ...TEST_ENV, NODE_ENV: 'development', MONGODB_URI: 'mongodb+srv://x/tipntell' }
+    expect(() => loadConfig(env)).toThrow(/sign in with Google/)
+    expect(() => loadConfig(env)).toThrow(/remove MONGODB_URI/)
+  })
+
+  it('answers 404 to a request that came through a proxy', async () => {
+    const response = await request(app)
+      .post('/api/admin/session/dev')
+      .set('Origin', ORIGIN)
+      .set('X-Forwarded-For', '203.0.113.7')
+    expect(response.status).toBe(404)
+    expect(response.headers['set-cookie']).toBeUndefined()
+  })
+})
+
+describe('TRUST_PROXY in production', () => {
+  it.each([['true'], [''], ['0'], ['1.5'], ['loopback']])('refuses TRUST_PROXY=%j', (value) => {
+    expect(() => loadConfig({ ...TEST_ENV, ...LIVE_ENV, TRUST_PROXY: value })).toThrow(
+      /TRUST_PROXY must be a whole number of 1 or more/,
+    )
+  })
+
+  it('accepts a whole number of proxies', () => {
+    expect(loadConfig({ ...TEST_ENV, ...LIVE_ENV, TRUST_PROXY: '2' }).trustProxy).toBe(2)
+  })
+})
+
+describe('sessions are tied to how they were made and to ADMIN_EMAIL', () => {
+  it('a dev-login session does not work on a production copy sharing the database', async () => {
+    const login = await request(app).post('/api/admin/session/dev').set('Origin', ORIGIN)
+    const cookie = sessionCookie(login)
+    await request(app).get('/api/admin/designs').set('Cookie', cookie).expect(200)
+
+    const { app: liveApp } = await buildApp(LIVE_ENV)
+    await request(liveApp).get('/api/admin/designs').set('Cookie', cookie).expect(401)
+    // The session was deleted, so it no longer works anywhere.
+    await request(app).get('/api/admin/designs').set('Cookie', cookie).expect(401)
+  })
+
+  it('a dev-login session does not work where the dev login is switched off', async () => {
+    const login = await request(app).post('/api/admin/session/dev').set('Origin', ORIGIN)
+    const { app: plainApp } = await buildApp({ ALLOW_DEV_LOGIN: 'false' })
+    const session = await request(plainApp)
+      .get('/api/admin/session')
+      .set('Cookie', sessionCookie(login))
+    expect(session.body).toEqual({ signedIn: false })
+  })
+
+  it('a Google session ends when ADMIN_EMAIL changes', async () => {
+    verifyGoogleToken.mockResolvedValueOnce({ email: 'owner@example.com', email_verified: true })
+    // A fresh copy, so the earlier tests' sign-ins don't count towards its login limit.
+    const { app: freshApp } = await buildApp()
+    const login = await request(freshApp)
+      .post('/api/admin/session/google')
+      .set('Origin', ORIGIN)
+      .send({ credential: 'good-token' })
+    const cookie = sessionCookie(login)
+
+    const { app: liveApp } = await buildApp(LIVE_ENV)
+    await request(liveApp).get('/api/admin/designs').set('Cookie', cookie).expect(200)
+
+    const { app: newOwnerApp } = await buildApp({ ...LIVE_ENV, ADMIN_EMAIL: 'new@example.com' })
+    const session = await request(newOwnerApp).get('/api/admin/session').set('Cookie', cookie)
+    expect(session.body).toEqual({ signedIn: false })
+    await request(liveApp).get('/api/admin/designs').set('Cookie', cookie).expect(401)
   })
 })

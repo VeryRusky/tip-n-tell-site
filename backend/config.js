@@ -22,8 +22,20 @@ function readTrustProxy(value) {
   return value // e.g. 'loopback' or an IP range; Express understands these
 }
 
+// Which mode the server runs in. Production is the SAFE default: only the exact words
+// 'development' or 'test' (any capitals, spaces around them ignored) switch it off.
+// So a missing NODE_ENV, or a typo like 'prod', still gets every production check and
+// no dev login. (Hosts such as Render do not set NODE_ENV for you.)
+function readMode(value) {
+  const mode = String(value ?? '')
+    .trim()
+    .toLowerCase()
+  return mode === 'development' || mode === 'test' ? mode : 'production'
+}
+
 export function loadConfig(env = process.env) {
-  const isProduction = env.NODE_ENV === 'production'
+  const mode = readMode(env.NODE_ENV)
+  const isProduction = mode === 'production'
   const problems = []
 
   // ---- Session secret: signs the login cookie ----
@@ -43,7 +55,20 @@ export function loadConfig(env = process.env) {
   // ---- Dev login: a button that signs in without Google, for local testing only ----
   const allowDevLogin = isTrue(env.ALLOW_DEV_LOGIN)
   if (allowDevLogin && isProduction) {
-    problems.push('ALLOW_DEV_LOGIN=true is not allowed when NODE_ENV=production.')
+    problems.push(
+      'ALLOW_DEV_LOGIN=true only works with NODE_ENV=development (or test). ' +
+        `NODE_ENV is "${env.NODE_ENV ?? ''}", which counts as production. ` +
+        'Remove ALLOW_DEV_LOGIN, or set NODE_ENV=development on your own computer.',
+    )
+  }
+  // The dev login may only ever write to the temporary in-memory database, never to a
+  // real one (such as the Atlas database the live site uses).
+  if (allowDevLogin && env.MONGODB_URI) {
+    problems.push(
+      'ALLOW_DEV_LOGIN=true cannot be used with a real database (MONGODB_URI is set). ' +
+        'Either sign in with Google (remove ALLOW_DEV_LOGIN), or remove MONGODB_URI ' +
+        'to use the temporary database with the dev login.',
+    )
   }
 
   // ---- Who may sign in ----
@@ -55,6 +80,16 @@ export function loadConfig(env = process.env) {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean)
+
+  // ---- Proxy: behind the host's HTTPS proxy, production needs an exact number ----
+  const trustProxyText = String(env.TRUST_PROXY ?? '').trim()
+  if (isProduction && !(/^\d+$/.test(trustProxyText) && Number(trustProxyText) >= 1)) {
+    problems.push(
+      'TRUST_PROXY must be a whole number of 1 or more in production: how many proxies ' +
+        'sit in front of the server (1 on Render or Railway, 2 with Cloudflare in front). ' +
+        '"true" is never allowed: it lets anyone fake their IP address past the rate limits.',
+    )
+  }
 
   if (isProduction) {
     if (!env.MONGODB_URI) problems.push('MONGODB_URI is required in production.')
@@ -68,20 +103,23 @@ export function loadConfig(env = process.env) {
   }
 
   return {
+    mode,
     isProduction,
     port: Number(env.PORT) || 8000,
     mongodbUri: env.MONGODB_URI ?? '',
     sessionSecret,
     sessionSecretWasGenerated: !env.SESSION_SECRET,
-    // Dev login only ever exists outside production (checked above).
-    devLogin: allowDevLogin && !isProduction,
+    // Dev login only ever exists outside production with the temporary database (checked above).
+    devLogin: allowDevLogin && !isProduction && !env.MONGODB_URI,
     adminEmail,
+    // The email a dev-login session is given.
+    devEmail: adminEmail || 'owner@localhost',
     googleClientId,
     allowedOrigins:
       allowedOrigins.length > 0 || isProduction
         ? allowedOrigins
         : ['http://localhost:5173', 'http://localhost:5180'],
-    trustProxy: readTrustProxy(env.TRUST_PROXY),
+    trustProxy: isProduction ? Number(trustProxyText) : readTrustProxy(trustProxyText),
     storageDriver: env.STORAGE_DRIVER || 'local',
     uploadsDir: env.UPLOADS_DIR || '',
     // Login attempts allowed per IP address in 15 minutes.
