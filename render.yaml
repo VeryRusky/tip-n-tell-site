@@ -1,0 +1,66 @@
+# Render Blueprint: how Render builds and runs the tip n tell site.
+# Reference: https://render.com/docs/blueprint-spec
+#
+# ONE web service runs the Express API (backend/) and also serves the built Vue site
+# (frontend/dist), so the pages, /api and the login cookie share one address.
+# Step-by-step set-up: "Deploying to Render (free plan)" in backend/README.md.
+#
+# No secrets in this file (the repo is public). The ones marked `sync: false` are typed
+# into Render's dashboard once, when the Blueprint is first created.
+
+services:
+  - type: web
+    name: tipntell
+    runtime: node
+    region: singapore # closest to her customers; can't be changed later
+    plan: free # sleeps after 15 minutes without visitors; change to a paid plan later
+    branch: version-b
+    autoDeployTrigger: commit # deploy every new commit on the branch
+    healthCheckPath: /api/health
+
+    # 1. Turn on pnpm, at the version in package.json's "packageManager" (Corepack).
+    # 2. Build the site. Building needs the dev tools (Vite), so this one install runs with
+    #    NODE_ENV=development (NODE_ENV=production below would make pnpm skip them).
+    #    The VITE_* settings below are read here.
+    # 3. Install the API's own packages only (--prod: no test tools such as
+    #    mongodb-memory-server). --ignore-scripts: none of them needs an install script,
+    #    and pnpm would otherwise try the test tool's download script.
+    buildCommand: >-
+      npm install -g corepack@0.36.0 && corepack enable pnpm &&
+      cd frontend && NODE_ENV=development pnpm install --frozen-lockfile && pnpm build &&
+      cd ../backend && pnpm install --frozen-lockfile --prod --ignore-scripts
+    startCommand: cd backend && node server.js
+
+    envVars:
+      # Node.js version on Render. Must match "engines" in both package.json files.
+      - key: NODE_VERSION
+        value: 24.22.1
+      # Every production safety check on, no dev login.
+      - key: NODE_ENV
+        value: production
+      # Render has one proxy in front of the server.
+      - key: TRUST_PROXY
+        value: '1'
+      # Design photos go to Cloudinary: a free Render server's disk is wiped often.
+      - key: STORAGE_DRIVER
+        value: cloudinary
+      # Build settings for the site: use this server's /api, and show the "Demo site"
+      # notice. Change VITE_DEMO_MODE to 'false' here when she takes real bookings.
+      - key: VITE_API_URL
+        value: /api
+      - key: VITE_DEMO_MODE
+        value: 'true'
+      # Signs the login cookie. Render makes a new random value once.
+      - key: SESSION_SECRET
+        generateValue: true
+      # Typed into the dashboard when the Blueprint is created (see backend/README.md).
+      - key: MONGODB_URI
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: CLOUDINARY_URL
+        sync: false
+      # ALLOWED_ORIGINS is not needed at first: the server uses Render's own address
+      # (RENDER_EXTERNAL_URL). Add it in the dashboard if she gets her own domain.
