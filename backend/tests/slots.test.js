@@ -23,6 +23,7 @@ afterAll(stopDatabase)
 
 beforeEach(async () => {
   await Slot.deleteMany({})
+  app.locals.publicCache.clear() // these tests change the database directly
 })
 
 // Opens slots as the signed-in owner.

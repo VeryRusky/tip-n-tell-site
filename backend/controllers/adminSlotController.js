@@ -70,6 +70,7 @@ export async function createMany(req, res) {
     }
   }
 
+  req.app.locals.publicCache.clear() // show the change on the public site now
   res.status(201).json({
     created: created.map(toAdminSlot),
     skipped: uniqueDates.length * uniqueTimes.length - created.length, // already there
@@ -97,6 +98,7 @@ export async function update(req, res) {
     { returnDocument: 'after' },
   ).lean()
   if (!slot) return res.status(404).json({ error: 'That slot no longer exists.' })
+  req.app.locals.publicCache.clear() // show the change on the public site now
   res.json(toAdminSlot(slot))
 }
 
@@ -105,5 +107,6 @@ export async function remove(req, res) {
   check(isId(req.params.id), 'Unknown slot.')
   const slot = await Slot.findByIdAndDelete(req.params.id)
   if (!slot) return res.status(404).json({ error: 'That slot no longer exists.' })
+  req.app.locals.publicCache.clear() // show the change on the public site now
   res.status(204).end()
 }

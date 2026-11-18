@@ -31,6 +31,7 @@ afterAll(stopDatabase)
 
 beforeEach(async () => {
   await Design.deleteMany({})
+  app.locals.publicCache.clear() // these tests change the database directly
   await Counter.deleteMany({})
 })
 

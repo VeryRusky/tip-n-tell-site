@@ -3,10 +3,11 @@ import helmet from 'helmet'
 import session from 'express-session'
 import MongoStore from 'connect-mongo'
 import mongoose from 'mongoose'
-import publicRoutes from './routes/publicRoutes.js'
+import { createPublicRouter } from './routes/publicRoutes.js'
 import { createAdminRouter } from './routes/adminRoutes.js'
 import { SESSION_COOKIE } from './controllers/sessionController.js'
 import { createStorage } from './services/storage/index.js'
+import { createPublicCache } from './services/publicCache.js'
 import { notFound, errorHandler } from './middleware/errorHandler.js'
 
 // Builds the Express app. server.js starts it; the tests use it directly with supertest.
@@ -18,6 +19,8 @@ export function createApp(config) {
   // Shared with the controllers through req.app.locals.
   app.locals.config = config
   app.locals.storage = storage
+  // Recent public answers (60 seconds); admin changes clear it.
+  app.locals.publicCache = createPublicCache()
 
   // Behind a host's proxy, this lets Express see the visitor's real IP and HTTPS.
   app.set('trust proxy', config.trustProxy)
@@ -45,7 +48,7 @@ export function createApp(config) {
   }
 
   // Public routes: no session needed.
-  app.use('/api', publicRoutes)
+  app.use('/api', createPublicRouter())
 
   // Admin routes: the login session is only used here.
   // Sessions are kept in MongoDB (a "sessions" collection), so the cookie holds only a random id.

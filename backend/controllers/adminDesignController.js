@@ -62,6 +62,7 @@ export async function create(req, res) {
       hidden: false,
       order: first ? first.order - 1 : 0,
     })
+    req.app.locals.publicCache.clear() // show the change on the public site now
     res.status(201).json(toAdminDesign(design))
   } catch (error) {
     await storage.remove(image.key) // don't leave an unused photo behind
@@ -87,6 +88,7 @@ export async function update(req, res) {
     { returnDocument: 'after' },
   ).lean()
   if (!design) return res.status(404).json({ error: 'That design no longer exists.' })
+  req.app.locals.publicCache.clear() // show the change on the public site now
   res.json(toAdminDesign(design))
 }
 
@@ -104,6 +106,7 @@ export async function replaceImage(req, res) {
   design.image = await storage.save(photo.buffer)
   await design.save()
   if (oldKey) await storage.remove(oldKey)
+  req.app.locals.publicCache.clear() // show the change on the public site now
   res.json(toAdminDesign(design))
 }
 
@@ -126,6 +129,7 @@ export async function reorder(req, res) {
     })),
   )
   const designs = await Design.find().sort({ order: 1, number: 1 }).lean()
+  req.app.locals.publicCache.clear() // show the change on the public site now
   res.json(designs.map(toAdminDesign))
 }
 
@@ -135,5 +139,6 @@ export async function remove(req, res) {
   const design = await Design.findByIdAndDelete(req.params.id).lean()
   if (!design) return res.status(404).json({ error: 'That design no longer exists.' })
   if (design.image?.key) await req.app.locals.storage.remove(design.image.key)
+  req.app.locals.publicCache.clear() // show the change on the public site now
   res.status(204).end()
 }
