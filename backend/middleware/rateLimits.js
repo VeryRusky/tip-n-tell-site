@@ -1,8 +1,9 @@
 import { rateLimit } from 'express-rate-limit'
 
 // Limits how many requests one IP address can make, to slow down anyone guessing
-// at the login or hammering the admin API. (Behind a host's proxy, set TRUST_PROXY
-// so the real visitor IP is used.)
+// at the login or hammering the admin API. (Behind a host's proxies, TRUST_PROXY must
+// be the measured number of proxies so the real visitor IP is used; see "Measuring
+// TRUST_PROXY" in backend/README.md.)
 const FIFTEEN_MINUTES = 15 * 60 * 1000
 
 export function createLoginLimiter(limit) {

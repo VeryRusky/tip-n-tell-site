@@ -42,9 +42,13 @@ services:
       # Every production safety check on, no dev login.
       - key: NODE_ENV
         value: production
-      # Render has one proxy in front of the server.
+      # How many proxies sit in front of the server. Measured on Render's onrender.com
+      # address in November 2026: 3. Re-check after any change (e.g. her own domain):
+      # the "pk" in the RateLimit-Policy header of /api/designs must stay the same across
+      # requests and must not change when you send a fake X-Forwarded-For header.
+      # How: "Measuring TRUST_PROXY" in backend/README.md.
       - key: TRUST_PROXY
-        value: '1'
+        value: '3'
       # Design photos go to Cloudinary: a free Render server's disk is wiped often.
       - key: STORAGE_DRIVER
         value: cloudinary

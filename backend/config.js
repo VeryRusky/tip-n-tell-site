@@ -99,7 +99,8 @@ export function loadConfig(env = process.env) {
   if (isProduction && !(/^\d+$/.test(trustProxyText) && Number(trustProxyText) >= 1)) {
     problems.push(
       'TRUST_PROXY must be a whole number of 1 or more in production: how many proxies ' +
-        'sit in front of the server (1 on Render or Railway, 2 with Cloudflare in front). ' +
+        "sit in front of the server, measured on the host (3 on Render's onrender.com " +
+        'address in Nov 2026; see "Measuring TRUST_PROXY" in backend/README.md). ' +
         '"true" is never allowed: it lets anyone fake their IP address past the rate limits.',
     )
   }

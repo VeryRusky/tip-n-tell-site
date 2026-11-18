@@ -246,6 +246,8 @@ describe('TRUST_PROXY in production', () => {
 
   it('accepts a whole number of proxies', () => {
     expect(loadConfig({ ...TEST_ENV, ...LIVE_ENV, TRUST_PROXY: '2' }).trustProxy).toBe(2)
+    // Measured on Render's onrender.com address (Nov 2026).
+    expect(loadConfig({ ...TEST_ENV, ...LIVE_ENV, TRUST_PROXY: '3' }).trustProxy).toBe(3)
   })
 })
 

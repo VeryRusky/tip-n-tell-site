@@ -141,7 +141,7 @@ Copy `.env.example` to `.env`. `.env` is never committed.
 | `GOOGLE_CLIENT_ID` | The OAuth client ID from Google Cloud (not a secret) | login page says Google sign-in is not set up. production: **won't start** |
 | `ALLOWED_ORIGINS` | The site's own address(es), comma separated, e.g. `https://tipntell.example.com` | development: `http://localhost:5173,http://localhost:5180`. On Render: Render's own address (`RENDER_EXTERNAL_URL`). Otherwise in production: **won't start** |
 | `ALLOW_DEV_LOGIN` | `true` shows a Dev login button for local testing | off. `true` **won't start** unless `NODE_ENV` is development/test **and** `MONGODB_URI` is empty |
-| `TRUST_PROXY` | Number of proxies in front of the server: `1` on Render or Railway, `2` with Cloudflare in front | development: none. production: **won't start** unless it is a whole number of 1 or more (`true` is never allowed) |
+| `TRUST_PROXY` | Number of proxies in front of the server, **measured on the host** (see "Measuring TRUST_PROXY"): `3` on Render's `onrender.com` address (Nov 2026). Re-measure after adding her own domain or Cloudflare. | development: none. production: **won't start** unless it is a whole number of 1 or more (`true` is never allowed) |
 | `BOOKING_DETAILS_KEEP_DAYS` | Booking details are deleted from slots dated more than this many days ago (checked at start and daily). 1 to 365. The Policies page promises 30: change both together. | 30 |
 | `STORAGE_DRIVER` | Where photos go: `local` (`backend/uploads/`) or `cloudinary` (the live site). Anything else: **won't start** | `local` (in production it starts, with a warning: a free host wipes its disk) |
 | `CLOUDINARY_URL` | With `cloudinary`: `cloudinary://<api key>:<api secret>@<cloud name>` from the Cloudinary console. **Secret.** | with `cloudinary`: **won't start** |
@@ -175,7 +175,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 | **Input checks** on every value | `services/validate.js`, controllers | Dates, times, months, statuses, names (1-60 chars) and ids are checked by hand. Each must be a plain string or true/false, so an object like `{ "$gt": "" }` can never reach a database query (NoSQL injection). Anything else gets a 400. |
 | **`helmet`** | `app.js` | Safe default headers (no framing, no MIME sniffing, a strict Content Security Policy for API answers, etc.). |
 | **JSON body limit 10 kB** | `app.js` | Nothing here needs more; stops oversized requests. |
-| **Rate limits** (`express-rate-limit`) | `middleware/rateLimits.js`, `routes/publicRoutes.js` | 10 sign-in attempts per 15 minutes per IP, 600 admin requests per 15 minutes, 120 public reads per minute (the health check is not limited). `TRUST_PROXY` (a number, never `true`) makes them see the real IP behind a host's proxy. |
+| **Rate limits** (`express-rate-limit`) | `middleware/rateLimits.js`, `routes/publicRoutes.js` | 10 sign-in attempts per 15 minutes per IP, 600 admin requests per 15 minutes, 120 public reads per minute (the health check is not limited). `TRUST_PROXY` (the measured number of proxies, never `true`) makes them see the real IP behind the host's proxies. |
 | **60-second public cache** | `services/publicCache.js` | Months, each month's slots and the designs are remembered for a minute, so a flood of visitors costs one database read a minute (a free Atlas tier is small). Every admin change clears it, so her changes show at once. Browsers are not told to cache these answers. |
 | **`Cache-Control: no-store`** and `X-Robots-Tag: noindex` on admin answers | `middleware/noStore.js` | Admin data is never kept in a browser or shared cache, or listed by search engines. The admin pages also add `<meta name="robots" content="noindex">`. |
 | **Short, generic errors** | `middleware/errorHandler.js` | Visitors never see stack traces. The log notes only the method, path and message, never cookies, tokens or request bodies. For database validation errors only the kind of error is logged, because their message can quote a value (e.g. a name). |
@@ -237,7 +237,8 @@ What `render.yaml` does on every deploy:
   read-only: `npm install -g` and `corepack enable` fail there, while `npx` only writes to
   npm's download cache.
 - **Start:** `cd backend && node server.js`. Render checks `/api/health` to know it is up.
-- **Settings it sets for you:** `NODE_VERSION`, `NODE_ENV=production`, `TRUST_PROXY=1`,
+- **Settings it sets for you:** `NODE_VERSION`, `NODE_ENV=production`, `TRUST_PROXY=3` (measured
+  on Render; see "Measuring TRUST_PROXY"),
   `STORAGE_DRIVER=cloudinary`, `VITE_API_URL=/api`, `VITE_DEMO_MODE=true` (the "Demo site"
   notice stays on) and a random `SESSION_SECRET` made by Render.
 - **Settings you type in once:** `MONGODB_URI`, `ADMIN_EMAIL`, `GOOGLE_CLIENT_ID`,
@@ -363,8 +364,9 @@ From the security review of 18 Nov 2026. Tick every box before the site takes re
 - [ ] `ALLOWED_ORIGINS`: exactly the address in her browser bar (see "About ALLOWED_ORIGINS" below).
       On Render it can stay unset while the site uses its `onrender.com` address (the server
       then uses `RENDER_EXTERNAL_URL`). Set it once she has her own domain.
-- [ ] `TRUST_PROXY=1` on Render or Railway (`2` if Cloudflare is added in front). **Never**
-      `true`: the server refuses to start with it.
+- [ ] `TRUST_PROXY`: the number **measured** on the host with the test in "Measuring
+      TRUST_PROXY" (`3` on Render's `onrender.com` address, Nov 2026). Measure again after
+      adding her own domain or Cloudflare. **Never** `true`: the server refuses to start with it.
 - [ ] `STORAGE_DRIVER=cloudinary` (in `render.yaml`) and `CLOUDINARY_URL` (dashboard). A free
       host's local disk is wiped on every deploy, restart and sleep. The deploy log must
       **not** show `Warning: STORAGE_DRIVER is "local" in production`.
@@ -401,6 +403,8 @@ From the security review of 18 Nov 2026. Tick every box before the site takes re
 - [ ] Upload a phone photo. Its address starts with `https://res.cloudinary.com/`. Download it
       from the site and check that it has no location (e.g. with an online EXIF viewer).
 - [ ] Reload on `/book/time` and on `/admin/designs`: the page loads (not "Not found").
+- [ ] Run the `TRUST_PROXY` test in "Measuring TRUST_PROXY": one stable `pk`, `r=` going down,
+      and a fake `X-Forwarded-For` doesn't change `pk`.
 - [ ] Delete a test design: its old photo address stops working (it may take a few minutes).
 - [ ] Open the browser console (F12) on the home page, a booking step, `/admin/login` and the
       designs page: no red "Content Security Policy" messages.
@@ -469,6 +473,40 @@ A session lasts 7 days from sign-in; there is no "sign out everywhere" button. T
 **every** device at once, empty the `sessions` collection in the live Atlas database
 (Atlas → *Browse Collections* → `sessions` → delete all documents). She then signs in again
 with Google. Changing `ADMIN_EMAIL` also ends every session.
+
+### Measuring TRUST_PROXY
+
+`TRUST_PROXY` is how many proxies stand between her visitors and the server. The rate limits
+use it to find the visitor's real address in the `X-Forwarded-For` header, so it must be
+**measured on the host**, not guessed:
+
+- **Too low:** the limits see one of the host's own proxies instead of the visitor, so
+  visitors share counters, or one visitor lands on several rotating counters and is never
+  limited.
+- **Too high:** the limits read an entry the visitor wrote themself, so a faked
+  `X-Forwarded-For` header chooses the counter and gets round the limit.
+
+Render's `onrender.com` address measured **3** (November 2026): with `1` one client was filed
+under three rotating addresses and a burst of 130 reads was never limited; with `2` every
+request got a new address; with `3` the counter was stable and a burst of 130 gave 107
+answers and 23 "too many requests" (429), while `/api/health` and the pages kept working.
+Her own domain, or Cloudflare in front, can change the number: **measure again** after
+adding either.
+
+The test: the `RateLimit-Policy` header on a public answer contains `pk=`, the counter this
+request was filed under, and `RateLimit` contains `r=`, the requests left.
+
+```bash
+SITE=https://tipntell.onrender.com
+for i in 1 2 3; do curl -s -o /dev/null -D - "$SITE/api/designs" | grep -i '^ratelimit'; done
+curl -s -o /dev/null -D - -H "X-Forwarded-For: 203.0.113.9" "$SITE/api/designs" | grep -i '^ratelimit-policy'
+curl -s -o /dev/null -D - -H "X-Forwarded-For: 203.0.113.9, 198.51.100.7" "$SITE/api/designs" | grep -i '^ratelimit-policy'
+```
+
+The number is right when every line shows the **same `pk`**, `r=` goes down by one each
+time, and the fake `X-Forwarded-For` lines still show that same `pk`. If `pk` changes between
+plain requests, the number is too low; if a fake header changes it, the number is too high.
+Change `TRUST_PROXY` in `render.yaml` (and push) and test again.
 
 ### About ALLOWED_ORIGINS
 
