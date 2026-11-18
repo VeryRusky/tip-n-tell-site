@@ -6,6 +6,12 @@
 // different settings without changing the real environment.
 
 import crypto from 'node:crypto'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// This file's own folder (backend/). Paths below are worked out from here, so they are the
+// same whichever folder the server is started from.
+const backendFolder = path.dirname(fileURLToPath(import.meta.url))
 
 // 'true' -> true, anything else -> false
 function isTrue(value) {
@@ -76,10 +82,17 @@ export function loadConfig(env = process.env) {
   const googleClientId = (env.GOOGLE_CLIENT_ID ?? '').trim()
 
   // ---- Which websites may send changes to the admin API (the site's own address) ----
-  const allowedOrigins = (env.ALLOWED_ORIGINS ?? '')
+  let allowedOrigins = (env.ALLOWED_ORIGINS ?? '')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean)
+  // On Render, if ALLOWED_ORIGINS is not set, use the service's own address, which Render
+  // puts in RENDER_EXTERNAL_URL (e.g. https://tipntell.onrender.com). The address is only
+  // known after the service is created, so this lets the first deploy start.
+  const renderUrl = String(env.RENDER_EXTERNAL_URL ?? '')
+    .trim()
+    .replace(/\/+$/, '') // no slash at the end, to match the browser's Origin header
+  if (allowedOrigins.length === 0 && renderUrl) allowedOrigins = [renderUrl]
 
   // ---- Proxy: behind the host's HTTPS proxy, production needs an exact number ----
   const trustProxyText = String(env.TRUST_PROXY ?? '').trim()
@@ -98,11 +111,50 @@ export function loadConfig(env = process.env) {
     problems.push('BOOKING_DETAILS_KEEP_DAYS must be a whole number of days from 1 to 365.')
   }
 
+  // ---- Where design photos are stored ----
+  // local: files in backend/uploads/. cloudinary: the Cloudinary service (the live site).
+  const storageDriver = String(env.STORAGE_DRIVER ?? '').trim() || 'local'
+  const cloudinaryUrl = String(env.CLOUDINARY_URL ?? '').trim()
+  if (storageDriver !== 'local' && storageDriver !== 'cloudinary') {
+    problems.push(`STORAGE_DRIVER must be "local" or "cloudinary", not "${storageDriver}".`)
+  }
+  if (
+    storageDriver === 'cloudinary' &&
+    !/^cloudinary:\/\/[^:@\s]+:[^@\s]+@[^\s/]+$/.test(cloudinaryUrl)
+  ) {
+    problems.push(
+      'STORAGE_DRIVER=cloudinary needs CLOUDINARY_URL, copied from the Cloudinary dashboard: ' +
+        'cloudinary://<api key>:<api secret>@<cloud name>',
+    )
+  }
+
+  // Not wrong, but worth saying when the server starts (server.js prints these).
+  const warnings = []
+  if (isProduction && storageDriver === 'local') {
+    warnings.push(
+      'STORAGE_DRIVER is "local" in production. A free host wipes its disk on every deploy, ' +
+        'restart and sleep, so uploaded design photos will disappear. ' +
+        'Set STORAGE_DRIVER=cloudinary and CLOUDINARY_URL.',
+    )
+  }
+
+  // ---- The built website (frontend/dist), served by this server on the live site ----
+  // Production always serves it; SERVE_FRONTEND=true tries the same thing on your computer.
+  const serveFrontend = isProduction || isTrue(env.SERVE_FRONTEND)
+  const frontendDir = path.resolve(
+    backendFolder,
+    String(env.FRONTEND_DIR ?? '').trim() || path.join('..', 'frontend', 'dist'),
+  )
+
   if (isProduction) {
     if (!env.MONGODB_URI) problems.push('MONGODB_URI is required in production.')
     if (!adminEmail) problems.push('ADMIN_EMAIL is required in production.')
     if (!googleClientId) problems.push('GOOGLE_CLIENT_ID is required in production.')
-    if (allowedOrigins.length === 0) problems.push('ALLOWED_ORIGINS is required in production.')
+    if (allowedOrigins.length === 0) {
+      problems.push(
+        'ALLOWED_ORIGINS is required in production (or RENDER_EXTERNAL_URL, which Render sets).',
+      )
+    }
   }
 
   if (problems.length > 0) {
@@ -127,8 +179,12 @@ export function loadConfig(env = process.env) {
         ? allowedOrigins
         : ['http://localhost:5173', 'http://localhost:5180'],
     trustProxy: isProduction ? Number(trustProxyText) : readTrustProxy(trustProxyText),
-    storageDriver: env.STORAGE_DRIVER || 'local',
+    storageDriver,
+    cloudinaryUrl,
     uploadsDir: env.UPLOADS_DIR || '',
+    serveFrontend,
+    frontendDir,
+    warnings,
     // Booking details are removed from slots dated more than this many days ago.
     bookingKeepDays,
     // Login attempts allowed per IP address in 15 minutes.

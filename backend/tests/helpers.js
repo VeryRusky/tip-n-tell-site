@@ -26,6 +26,18 @@ export const TEST_ENV = {
 
 let memoryServer = null
 let uploadsDir = ''
+let siteDir = ''
+
+// A tiny stand-in for the built website (frontend/dist): a page, a hashed script and an icon.
+export const SITE_PAGE = '<!doctype html><title>tip n tell test page</title>'
+async function makeSiteFolder() {
+  const folder = await fs.mkdtemp(path.join(os.tmpdir(), 'tipntell-site-'))
+  await fs.mkdir(path.join(folder, 'assets'))
+  await fs.writeFile(path.join(folder, 'index.html'), SITE_PAGE)
+  await fs.writeFile(path.join(folder, 'assets', 'index-AbC123.js'), 'console.log(1)')
+  await fs.writeFile(path.join(folder, 'favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>')
+  return folder
+}
 
 export async function startDatabase() {
   memoryServer = await MongoMemoryServer.create()
@@ -36,13 +48,18 @@ export async function stopDatabase() {
   await mongoose.disconnect()
   await memoryServer?.stop()
   if (uploadsDir) await fs.rm(uploadsDir, { recursive: true, force: true })
+  if (siteDir) await fs.rm(siteDir, { recursive: true, force: true })
+  uploadsDir = ''
+  siteDir = ''
 }
 
 // Builds the app. `env` replaces any of the test settings above.
 export async function buildApp(env = {}) {
   if (!uploadsDir) uploadsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tipntell-uploads-'))
-  const config = loadConfig({ ...TEST_ENV, UPLOADS_DIR: uploadsDir, ...env })
-  return { app: createApp(config), config, uploadsDir }
+  // Production apps serve the website, so they need one (SERVE_FRONTEND=true does too).
+  if (!siteDir) siteDir = await makeSiteFolder()
+  const config = loadConfig({ ...TEST_ENV, UPLOADS_DIR: uploadsDir, FRONTEND_DIR: siteDir, ...env })
+  return { app: createApp(config), config, uploadsDir, siteDir }
 }
 
 // A supertest "agent" keeps cookies between requests, like a browser.

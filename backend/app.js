@@ -5,15 +5,22 @@ import MongoStore from 'connect-mongo'
 import mongoose from 'mongoose'
 import { createPublicRouter } from './routes/publicRoutes.js'
 import { createAdminRouter } from './routes/adminRoutes.js'
+import { createSiteRouter } from './routes/siteRoutes.js'
 import { SESSION_COOKIE } from './controllers/sessionController.js'
 import { createStorage } from './services/storage/index.js'
 import { createPublicCache } from './services/publicCache.js'
 import { notFound, errorHandler } from './middleware/errorHandler.js'
 
+// Addresses the API itself answers: /api/... and /uploads/... (any capitals, like Express).
+const BACKEND_PATH = /^\/(api|uploads)(\/|$)/i
+
 // Builds the Express app. server.js starts it; the tests use it directly with supertest.
 // The database must already be connected (the session store keeps logins in MongoDB).
 export function createApp(config) {
   const app = express()
+  // The built website (live site, or SERVE_FRONTEND=true). Made first, so a missing build
+  // stops the server straight away with a clear message.
+  const siteRouter = config.serveFrontend ? createSiteRouter(config) : null
   const storage = createStorage(config)
 
   // Shared with the controllers through req.app.locals.
@@ -27,8 +34,15 @@ export function createApp(config) {
   // Don't announce "X-Powered-By: Express".
   app.disable('x-powered-by')
 
-  // Safe default headers (e.g. stop other sites framing these pages, block MIME sniffing).
-  app.use(helmet())
+  // Safe default headers (e.g. stop other sites framing these pages, block MIME sniffing)
+  // for API answers and photos. When this server also serves the website, its pages get
+  // their own set instead (routes/siteRoutes.js), because helmet's strict defaults would
+  // block Google sign-in.
+  const strictHeaders = helmet()
+  app.use((req, res, next) => {
+    if (config.serveFrontend && !BACKEND_PATH.test(req.path)) return next()
+    strictHeaders(req, res, next)
+  })
 
   // JSON bodies only up to 10 kB: nothing in this API needs more.
   app.use(express.json({ limit: '10kb' }))
@@ -46,6 +60,8 @@ export function createApp(config) {
       }),
     )
   }
+  // A photo that doesn't exist (or any /uploads address with Cloudinary): a plain 404.
+  app.use('/uploads', notFound)
 
   // Public routes: no session needed.
   app.use('/api', createPublicRouter())
@@ -73,8 +89,12 @@ export function createApp(config) {
   })
   app.use('/api/admin', sessionMiddleware, createAdminRouter(config))
 
-  // Anything else under /api, and errors.
+  // Anything else under /api gets the JSON 404 (never the website's page).
   app.use('/api', notFound)
+
+  // Every other address: the website's pages and files.
+  if (siteRouter) app.use(siteRouter)
+
   app.use(errorHandler)
 
   return app

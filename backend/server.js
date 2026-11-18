@@ -14,6 +14,9 @@ async function start() {
     process.exit(1)
   }
 
+  // Settings that work but are probably a mistake (e.g. photos on a free host's disk).
+  for (const warning of config.warnings) console.warn(`[config] Warning: ${warning}`)
+
   const database = await connectDatabase(config)
   if (database.temporary) {
     console.log(
@@ -34,6 +37,7 @@ async function start() {
   const app = createApp(config)
   app.listen(config.port, () => {
     console.log(`[api] Listening on http://localhost:${config.port}`)
+    if (config.serveFrontend) console.log(`[site] Serving the website from ${config.frontendDir}`)
   })
 }
 
