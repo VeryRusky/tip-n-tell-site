@@ -85,8 +85,9 @@ columns but cannot make one stick to the bottom (phones) or the top (laptops) of
 ## Demo deploy (GitHub Pages)
 
 The demo is live at https://veryrusky.github.io/tip-n-tell-site/, served from the `gh-pages` branch.
-While `demoMode: true` in `src/config/site.js`, every page shows a "Demo site" notice; set it to
-`false` before the real launch.
+Every page shows a "Demo site" notice unless the site is built with `VITE_DEMO_MODE=false`
+(`demoMode` in `src/config/site.js`). The demo build below leaves it unset, so the notice stays.
+The real site (Render) sets it in `render.yaml`; see "Deploying to Render" in `backend/README.md`.
 
 To redeploy after changes (Git Bash):
 

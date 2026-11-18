@@ -21,8 +21,10 @@ export const site = {
     'The 2pm session is not recommended for complicated designs, because a long set can run into the next slot. Choose 10am or 4pm if your design is detailed.',
 
   // true shows a "Demo" notice on every page (sample slots, not taking bookings).
-  // Set to false when the site goes live with her real slots.
-  demoMode: true,
+  // Set when the site is built: VITE_DEMO_MODE=false turns it off (the real site, once it
+  // takes bookings). Anything else, or not set at all, keeps the notice on, so the GitHub
+  // Pages demo and test copies always show it.
+  demoMode: import.meta.env.VITE_DEMO_MODE !== 'false',
 
   // Key used to keep an unfinished request in this browser (choices only, no personal data).
   storageKey: 'tipntell-request',
